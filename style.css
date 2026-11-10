@@ -394,3 +394,29 @@ footer a:not(.brand):hover{color:#fff}
 @media(prefers-reduced-motion:reduce){
   .facebook-float{transition:none}
 }
+
+
+/* Admin iPhone push notification setup */
+.push-setup{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  flex-wrap:wrap;
+  margin:22px 0;
+  padding:20px 22px;
+  border:1px solid rgba(41,57,145,.14);
+  border-radius:20px;
+  background:linear-gradient(135deg,#fff 0%,#f2f5ff 100%);
+  box-shadow:0 10px 30px rgba(24,39,92,.06);
+}
+.push-setup-copy{display:flex;align-items:flex-start;gap:13px;flex:1;min-width:240px}
+.push-setup-icon{display:grid;place-items:center;width:46px;height:46px;flex:0 0 46px;border-radius:15px;background:#293991;color:#fff;font-size:22px}
+.push-setup h2{margin:0 0 5px;font-size:17px;color:#1e2a5a}
+.push-setup p{margin:0;color:#66708b;font-size:13px;line-height:1.8}
+.push-setup .push-help{flex-basis:100%;padding-top:10px;border-top:1px solid rgba(41,57,145,.1);font-size:12px}
+.push-setup button{white-space:nowrap}
+@media(max-width:640px){
+  .push-setup{padding:16px}
+  .push-setup button{width:100%}
+}
