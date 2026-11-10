@@ -14,6 +14,7 @@ function showDashboard(username){
   dashboard.hidden=false;
   document.getElementById('adminIdentity').textContent='مرحبًا، '+username;
   loadOrders();
+  setupPushNotifications();
 }
 async function checkSession(){
   try{
@@ -101,3 +102,110 @@ document.getElementById('refresh').addEventListener('click',loadOrders);
 document.getElementById('searchOrders').addEventListener('input',renderOrders);
 document.getElementById('statusFilter').addEventListener('change',renderOrders);
 checkSession();
+
+let pushPublicKey='';
+let pushRegistration=null;
+const pushButton=document.getElementById('enablePushButton');
+const pushStatus=document.getElementById('pushStatus');
+const pushHelp=document.getElementById('pushHelp');
+
+function isInstalledAdminApp(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function base64UrlToBytes(value){
+  const padding='='.repeat((4-value.length%4)%4);
+  const base64=(value+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=window.atob(base64);
+  return Uint8Array.from(raw,char=>char.charCodeAt(0));
+}
+async function setupPushNotifications(){
+  if(!pushButton||!pushStatus)return;
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+    pushButton.disabled=true;
+    pushStatus.textContent='هذا المتصفح لا يدعم إشعارات الويب. حدّث iOS وافتح لوحة الإدارة من Safari.';
+    return;
+  }
+  try{
+    const response=await fetch('/api/admin/push',{credentials:'same-origin',cache:'no-store'});
+    const config=await response.json();
+    if(!response.ok||!config.publicKey)throw new Error('إعداد مفتاح الإشعارات غير مكتمل على السيرفر');
+    pushPublicKey=config.publicKey;
+    pushRegistration=await navigator.serviceWorker.register('/sw.js',{scope:'/'});
+    const ready=await navigator.serviceWorker.ready;
+    pushRegistration=ready;
+    const current=await ready.pushManager.getSubscription();
+    if(current){
+      await savePushSubscription(current);
+      pushButton.textContent='إيقاف إشعارات هذا الجهاز';
+      pushStatus.textContent='إشعارات هذا الجهاز مفعّلة. ستصلك تنبيهات الطلبات الجديدة.';
+      pushButton.dataset.active='true';
+    }else{
+      pushButton.textContent='تفعيل إشعارات الموبايل';
+      pushStatus.textContent='فعّل الإشعارات ليصلك تنبيه عند وصول طلب جديد.';
+      pushButton.dataset.active='false';
+    }
+    if(!isInstalledAdminApp()){
+      pushHelp.textContent='مهم للآيفون: افتح هذه الصفحة في Safari، اضغط مشاركة، ثم إضافة إلى الشاشة الرئيسية، فعّل «فتح كتطبيق ويب»، وافتح أيقونة الأستاذ الجديدة. بعدها اضغط تفعيل الإشعارات من داخل التطبيق.';
+    }else{
+      pushHelp.textContent='التطبيق مثبت على الشاشة الرئيسية. اضغط تفعيل الإشعارات واسمح بها عند ظهور رسالة iPhone.';
+    }
+  }catch(error){
+    pushButton.disabled=true;
+    pushStatus.textContent=error.message||'تعذر تجهيز إشعارات الموبايل.';
+    pushHelp.textContent='تأكد من اتصال الإنترنت ثم حدّث الصفحة. إذا استمرت المشكلة راجع إعدادات السيرفر.';
+  }
+}
+async function savePushSubscription(subscription){
+  const response=await fetch('/api/admin/push',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body:JSON.stringify({subscription:subscription.toJSON()})
+  });
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||'تعذر حفظ اشتراك الإشعارات');
+  return data;
+}
+if(pushButton){
+  pushButton.addEventListener('click',async()=>{
+    pushButton.disabled=true;
+    try{
+      if(!isInstalledAdminApp()){
+        pushStatus.textContent='لا يمكن تفعيل إشعارات iPhone من تبويب Safari عادي. أضف لوحة الإدارة إلى الشاشة الرئيسية وافتحها من الأيقونة أولًا.';
+        pushHelp.textContent='Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية ← فتح كتطبيق ويب ← إضافة. ثم افتح تطبيق الأستاذ واضغط الزر مرة أخرى.';
+        return;
+      }
+      if(pushButton.dataset.active==='true'){
+        const subscription=await pushRegistration.pushManager.getSubscription();
+        if(subscription){
+          await fetch('/api/admin/push',{
+            method:'DELETE',
+            headers:{'Content-Type':'application/json'},
+            credentials:'same-origin',
+            body:JSON.stringify({endpoint:subscription.endpoint})
+          });
+          await subscription.unsubscribe();
+        }
+        pushButton.dataset.active='false';
+        pushButton.textContent='تفعيل إشعارات الموبايل';
+        pushStatus.textContent='تم إيقاف إشعارات هذا الجهاز.';
+        return;
+      }
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted')throw new Error('لم يتم السماح بالإشعارات. فعّلها من إعدادات iPhone ثم حاول مرة أخرى.');
+      const subscription=await pushRegistration.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:base64UrlToBytes(pushPublicKey)
+      });
+      await savePushSubscription(subscription);
+      pushButton.dataset.active='true';
+      pushButton.textContent='إيقاف إشعارات هذا الجهاز';
+      pushStatus.textContent='تم تفعيل الإشعارات بنجاح. سننبهك عند وصول أي طلب طباعة جديد.';
+      pushHelp.textContent='تأكد أن إشعارات تطبيق الأستاذ مسموح بها من إعدادات iPhone ← الإشعارات.';
+    }catch(error){
+      pushStatus.textContent=error.message||'تعذر تفعيل الإشعارات.';
+    }finally{
+      pushButton.disabled=false;
+    }
+  });
+}
