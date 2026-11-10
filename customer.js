@@ -1,3 +1,5 @@
+import { upload } from 'https://esm.sh/@vercel/blob@2.9.0/client';
+
 const form=document.getElementById('orderForm');
 if(form){
   const service=form.elements.service;
@@ -6,6 +8,8 @@ if(form){
   const fileInput=form.elements.file;
   const notice=document.getElementById('notice');
   const submit=form.querySelector('button[type="submit"]');
+  const fileHelp=document.getElementById('fileHelp');
+  const MAX_FILE=5*1024**4;
 
   function syncServices(){
     buttons.forEach(button=>{
@@ -23,10 +27,9 @@ if(form){
     document.getElementById('order').scrollIntoView({behavior:'smooth',block:'start'});
   }));
   service.addEventListener('change',syncServices);
-  const fileHelp=document.getElementById('fileHelp');
   fileInput.addEventListener('change',()=>{
     const file=fileInput.files[0];
-    if(!file){fileHelp.textContent='الملفات المسموحة PDF وJPG وPNG، والحد الأقصى 3 ميجابايت.';return;}
+    if(!file){fileHelp.textContent='الملفات المسموحة PDF وJPG وPNG. ارفع ملفات الطباعة مباشرة وبالحجم الأصلي.';return;}
     const mb=(file.size/1024/1024).toFixed(2);
     fileHelp.textContent='الملف المختار: '+file.name+' — '+mb+' ميجابايت';
   });
@@ -36,18 +39,27 @@ if(form){
     notice.textContent='';
     const file=fileInput.files[0];
     if(!file){notice.textContent='من فضلك ارفع ملف الطباعة.';return;}
-    if(file.size>3*1024*1024){notice.textContent='حجم الملف أكبر من 3 ميجابايت. اختر ملفًا أصغر.';return;}
+    if(file.size>MAX_FILE){notice.textContent='حجم الملف يتجاوز الحد التقني الأقصى للتخزين (5 تيرابايت).';return;}
     if(!['application/pdf','image/jpeg','image/png'].includes(file.type)){notice.textContent='نوع الملف غير مدعوم. ارفع PDF أو JPG أو PNG.';return;}
     submit.disabled=true;
-    submit.textContent='جارٍ إرسال الطلب...';
+    submit.textContent='جارٍ رفع الملف...';
+    fileHelp.textContent='جارٍ تجهيز رفع الملف بأمان...';
     try{
-      const data=new FormData(form);
-      const dataUrl=await new Promise((resolve,reject)=>{
-        const reader=new FileReader();
-        reader.onload=()=>resolve(reader.result);
-        reader.onerror=()=>reject(new Error('تعذر قراءة الملف'));
-        reader.readAsDataURL(file);
+      const pathname='orders/'+crypto.randomUUID()+'/'+file.name.replace(/[\\/]/g,'_');
+      const blob=await upload(pathname,file,{
+        access:'private',
+        handleUploadUrl:'/api/uploads',
+        multipart:true,
+        clientPayload:JSON.stringify({contentType:file.type,size:file.size}),
+        onUploadProgress(progress){
+          const percent=Math.round(progress.percentage);
+          fileHelp.textContent='جارٍ رفع الملف: '+percent+'%';
+          submit.textContent='رفع الملف '+percent+'%';
+        }
       });
+      fileHelp.textContent='اكتمل رفع الملف. جارٍ تسجيل الطلب...';
+      submit.textContent='جارٍ تسجيل الطلب...';
+      const data=new FormData(form);
       const response=await fetch('/api/orders',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -55,7 +67,7 @@ if(form){
           customer:data.get('customer'),phone:data.get('phone'),service:data.get('service'),
           paper:data.get('paper'),size:data.get('size'),finish:data.get('finish'),
           copies:data.get('copies'),notes:data.get('notes'),
-          file:{name:file.name,type:file.type,base64:String(dataUrl).split(',')[1]}
+          file:{pathname:blob.pathname,name:file.name,type:file.type,size:file.size}
         })
       });
       const result=await response.json();
@@ -75,9 +87,10 @@ if(form){
       notice.append(heading,code,help,link);
       form.reset();
       syncServices();
-      fileHelp.textContent='الملفات المسموحة PDF وJPG وPNG، والحد الأقصى 3 ميجابايت.';
+      fileHelp.textContent='الملفات المسموحة PDF وJPG وPNG. ارفع ملفات الطباعة مباشرة وبالحجم الأصلي.';
     }catch(error){
       notice.textContent=error.message||'حدث خطأ. حاول مرة أخرى.';
+      fileHelp.textContent='لم يكتمل رفع الملف. حاول مرة أخرى أو تواصل معنا عبر واتساب.';
     }finally{
       submit.disabled=false;
       submit.innerHTML='إرسال الطلب <span aria-hidden="true">←</span>';
