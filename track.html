@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#293991">
+  <meta name="description" content="تابع حالة طلب الطباعة لدى الأستاذ باستخدام رقم الطلب.">
+  <title>تتبع طلبك | الأستاذ</title>
+  <link rel="icon" href="assets/ostaz-logo.svg?v=2" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="index.html" aria-label="الأستاذ — الرئيسية"><img class="brand-logo" src="assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ"></a>
+    <nav aria-label="القائمة الرئيسية"><a href="index.html#services">الخدمات</a><a href="index.html#order">اطلب طباعة</a><a href="admin.html">إدارة المطبعة</a></nav>
+    <a class="btn header-cta" href="index.html#order">طلب جديد</a>
+  </header>
+  <main class="track-main">
+    <section class="track-intro">
+      <span class="eyebrow">متابعة مباشرة</span>
+      <h1>طلبك فين دلوقتي؟</h1>
+      <p>اكتب رقم الطلب الذي ظهر لك بعد الإرسال لمعرفة آخر تحديث من المطبعة.</p>
+      <form id="trackForm" class="track-form">
+        <label for="orderCode">رقم الطلب</label>
+        <div><input id="orderCode" name="code" required placeholder="مثال: OST-A1B2C3D4E5F607" autocomplete="off"><button class="btn" type="submit">تتبع الطلب ←</button></div>
+        <small>رقم الطلب يبدأ بـ OST- ويتكون من حروف وأرقام.</small>
+      </form>
+      <div id="trackMessage" class="track-message" role="status" aria-live="polite"></div>
+    </section>
+    <section id="trackResult" class="track-result" hidden></section>
+  </main>
+  <footer>
+    <a class="brand" href="index.html"><img class="brand-logo" src="assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ"></a>
+    <div class="footer-copy"><strong>الأستاذ للطباعة والخدمات</strong><small>نخليك متابع طلبك خطوة بخطوة.</small></div>
+    <a href="index.html">العودة للرئيسية</a>
+  </footer>
+  <script src="track.js"></script>
+</body>
+</html>
