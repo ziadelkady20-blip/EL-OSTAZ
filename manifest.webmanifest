@@ -1,0 +1,16 @@
+{
+  "id": "/admin.html",
+  "name": "الأستاذ — إدارة المطبعة",
+  "short_name": "إدارة الأستاذ",
+  "description": "لوحة إدارة طلبات مطبعة الأستاذ",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/admin.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#293991",
+  "icons": [
+    { "src": "/assets/ostaz-logo.svg?v=2", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
