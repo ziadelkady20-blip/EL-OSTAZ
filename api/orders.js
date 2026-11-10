@@ -3,6 +3,7 @@ import { head, del } from '@vercel/blob';
 import { getDb } from '../lib/db.js';
 import { allowMethods, readJson, safeText, sendJson } from '../lib/http.js';
 import { requireAdmin } from '../lib/auth.js';
+import { sendPrinterWhatsAppOrder } from '../lib/whatsapp.js';
 
 const SERVICES = ['طباعة وجه واحد (ألوان)', 'طباعة وجهين (ألوان)', 'طباعة وجه واحد (أبيض وأسود)', 'طباعة وجهين (أبيض وأسود)', 'شهادات', 'صور شخصية'];
 const PAPERS = ['ورق عادي', 'ورق جلوسي'];
@@ -64,7 +65,27 @@ export default async function handler(req, res) {
         (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_path, file_type, file_size, status, status_history, created_at, updated_at)
         VALUES (${code}, ${customer}, ${phone}, ${service}, ${paper}, ${size}, ${finish}, ${copies}, 1, ${notes || null}, ${originalName}, ${file.pathname}, ${file.type}, ${file.size}, 'new', ${history}::jsonb, NOW(), NOW())
         RETURNING id, order_code, status, created_at`;
-      return sendJson(res, 201, { ok: true, order: rows[0], trackingUrl: `/track.html?code=${code}` });
+      const savedOrder = {
+        ...rows[0],
+        customer_name: customer,
+        phone,
+        service_type: service,
+        paper_type: paper,
+        paper_size: size,
+        finishing: finish,
+        copies,
+        notes,
+        file_name: originalName,
+      };
+      let whatsapp = { sent: false, configured: false, reason: 'WhatsApp notification was not attempted' };
+      try {
+        whatsapp = await sendPrinterWhatsAppOrder({ order: savedOrder, file: { ...file, name: originalName } });
+        if (!whatsapp.sent) console.warn('order WhatsApp notification not sent', { orderCode: code, reason: whatsapp.reason });
+      } catch (whatsappError) {
+        console.error('order WhatsApp notification error', { orderCode: code, message: whatsappError?.message });
+        whatsapp = { sent: false, configured: true, reason: 'WhatsApp delivery failed; order remains safely saved' };
+      }
+      return sendJson(res, 201, { ok: true, order: rows[0], trackingUrl: `/track.html?code=${code}`, whatsapp });
     } catch (dbError) {
       try { await del(file.pathname, { access: 'private' }); } catch {}
       throw dbError;
