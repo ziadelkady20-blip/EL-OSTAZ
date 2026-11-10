@@ -1,16 +1,21 @@
 {
-  "id": "/admin.html",
-  "name": "الأستاذ — إدارة المطبعة",
-  "short_name": "إدارة الأستاذ",
-  "description": "لوحة إدارة طلبات مطبعة الأستاذ",
+  "id": "/",
+  "name": "الأستاذ للطباعة والخدمات",
+  "short_name": "الأستاذ",
+  "description": "اطلب خدمات الطباعة وتابع طلبك بسهولة من هاتفك.",
   "lang": "ar",
   "dir": "rtl",
-  "start_url": "/admin.html",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f7fb",
+  "background_color": "#f8f9fd",
   "theme_color": "#293991",
   "icons": [
-    { "src": "/assets/ostaz-logo.svg?v=2", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "/assets/ostaz-customer-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }
