@@ -1,2 +1,102 @@
-const KEY='ostaz_print_orders_v1';const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}};const write=x=>localStorage.setItem(KEY,JSON.stringify(x));const form=document.getElementById('orderForm');if(form){document.getElementById('year').textContent=new Date().getFullYear();const service=document.getElementById('service');document.querySelectorAll('.service').forEach(b=>b.addEventListener('click',()=>{service.value=b.dataset.service;document.querySelectorAll('.service').forEach(x=>x.classList.toggle('selected',x===b));document.getElementById('order').scrollIntoView({behavior:'smooth'})}));service.addEventListener('change',()=>document.querySelectorAll('.service').forEach(x=>x.classList.toggle('selected',x.dataset.service===service.value)));form.addEventListener('submit',e=>{e.preventDefault();const data=new FormData(form),file=form.elements.file.files[0];if(!file)return;const order={id:'OS-'+Date.now().toString().slice(-7),customer:data.get('customer'),phone:data.get('phone'),service:data.get('service'),paper:data.get('paper'),size:data.get('size'),finish:data.get('finish'),copies:data.get('copies'),fileName:file.name,notes:data.get('notes'),status:'جديد',created:new Date().toLocaleString('ar-EG')};const orders=read();orders.unshift(order);write(orders);document.getElementById('notice').textContent='تم تسجيل الطلب التجريبي رقم '+order.id+' بنجاح.';form.reset();document.querySelectorAll('.service').forEach(x=>x.classList.remove('selected'))})}
-const host=document.getElementById('orders');if(host){function render(){const orders=read();document.getElementById('total').textContent=orders.length;document.getElementById('newCount').textContent=orders.filter(x=>x.status==='جديد').length;document.getElementById('working').textContent=orders.filter(x=>x.status==='قيد التنفيذ').length;document.getElementById('done').textContent=orders.filter(x=>x.status==='مكتمل').length;if(!orders.length){host.innerHTML='<div class="empty">لا توجد طلبات حتى الآن.</div>';return}host.innerHTML=orders.map(o=>'<article class="order-row"><div><b>'+esc(o.customer)+'</b><small>'+esc(o.id)+' • '+esc(o.created)+'</small></div><div>'+esc(o.service)+'<small>'+esc(o.paper)+' • '+esc(o.size)+'</small></div><div>'+esc(o.phone)+'<small>'+esc(o.fileName)+'</small></div><div><b>'+esc(o.copies)+' نسخة</b><small>'+esc(o.finish)+'</small></div><select aria-label="حالة الطلب" data-id="'+esc(o.id)+'"><option '+(o.status==='جديد'?'selected':'')+'>جديد</option><option '+(o.status==='قيد التنفيذ'?'selected':'')+'>قيد التنفيذ</option><option '+(o.status==='مكتمل'?'selected':'')+'>مكتمل</option><option '+(o.status==='ملغي'?'selected':'')+'>ملغي</option></select></article>').join('');host.querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const all=read(),item=all.find(x=>x.id===s.dataset.id);if(item){item.status=s.value;write(all);render()}}))}function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}document.getElementById('refresh').addEventListener('click',render);render()}
+const KEY='ostaz_print_orders_v1';
+const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}};
+const write=orders=>localStorage.setItem(KEY,JSON.stringify(orders));
+
+const form=document.getElementById('orderForm');
+if(form){
+  const year=document.getElementById('year');
+  if(year) year.textContent=new Date().getFullYear();
+
+  const service=document.getElementById('service');
+  const serviceButtons=[...document.querySelectorAll('.service')];
+  const syncServices=()=>{
+    serviceButtons.forEach(button=>{
+      const active=button.dataset.service===service.value;
+      button.classList.toggle('selected',active);
+      button.setAttribute('aria-pressed',String(active));
+    });
+  };
+
+  serviceButtons.forEach(button=>button.addEventListener('click',()=>{
+    service.value=button.dataset.service;
+    syncServices();
+    document.getElementById('order').scrollIntoView({behavior:'smooth',block:'start'});
+  }));
+  service.addEventListener('change',syncServices);
+
+  const fileInput=form.elements.file;
+  const fileHelp=document.getElementById('fileHelp');
+  const defaultFileHelp=fileHelp?.textContent||'';
+  fileInput.addEventListener('change',()=>{
+    const file=fileInput.files[0];
+    if(!file){if(fileHelp)fileHelp.textContent=defaultFileHelp;return}
+    const size=file.size<1024*1024
+      ?Math.max(1,Math.round(file.size/1024))+' KB'
+      :(file.size/(1024*1024)).toFixed(2)+' MB';
+    if(fileHelp)fileHelp.textContent='الملف المختار: '+file.name+' — '+size;
+  });
+
+  form.addEventListener('submit',event=>{
+    event.preventDefault();
+    const data=new FormData(form);
+    const file=fileInput.files[0];
+    if(!file)return;
+    const order={
+      id:'OS-'+Date.now().toString().slice(-7),
+      customer:data.get('customer'),
+      phone:data.get('phone'),
+      service:data.get('service'),
+      paper:data.get('paper'),
+      size:data.get('size'),
+      finish:data.get('finish'),
+      copies:data.get('copies'),
+      fileName:file.name,
+      notes:data.get('notes'),
+      status:'جديد',
+      created:new Date().toLocaleString('ar-EG')
+    };
+    const orders=read();
+    orders.unshift(order);
+    write(orders);
+    document.getElementById('notice').textContent='تم تسجيل الطلب التجريبي رقم '+order.id+' بنجاح.';
+    form.reset();
+    syncServices();
+    if(fileHelp)fileHelp.textContent=defaultFileHelp;
+  });
+}
+
+const host=document.getElementById('orders');
+if(host){
+  const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[char]));
+  function render(){
+    const orders=read();
+    document.getElementById('total').textContent=orders.length;
+    document.getElementById('newCount').textContent=orders.filter(order=>order.status==='جديد').length;
+    document.getElementById('working').textContent=orders.filter(order=>order.status==='قيد التنفيذ').length;
+    document.getElementById('done').textContent=orders.filter(order=>order.status==='مكتمل').length;
+    if(!orders.length){
+      host.innerHTML='<div class="empty">لا توجد طلبات حتى الآن.</div>';
+      return;
+    }
+    host.innerHTML=orders.map(order=>'<article class="order-row">'+
+      '<div><b>'+esc(order.customer)+'</b><small>'+esc(order.id)+' • '+esc(order.created)+'</small></div>'+
+      '<div>'+esc(order.service)+'<small>'+esc(order.paper)+' • '+esc(order.size)+'</small></div>'+
+      '<div>'+esc(order.phone)+'<small>'+esc(order.fileName)+'</small></div>'+
+      '<div><b>'+esc(order.copies)+' نسخة</b><small>'+esc(order.finish)+'</small></div>'+
+      '<select aria-label="حالة الطلب" data-id="'+esc(order.id)+'">'+
+        '<option '+(order.status==='جديد'?'selected':'')+'>جديد</option>'+
+        '<option '+(order.status==='قيد التنفيذ'?'selected':'')+'>قيد التنفيذ</option>'+
+        '<option '+(order.status==='مكتمل'?'selected':'')+'>مكتمل</option>'+
+        '<option '+(order.status==='ملغي'?'selected':'')+'>ملغي</option>'+
+      '</select></article>').join('');
+    host.querySelectorAll('select').forEach(select=>select.addEventListener('change',()=>{
+      const all=read();
+      const item=all.find(order=>order.id===select.dataset.id);
+      if(item){item.status=select.value;write(all);render()}
+    }));
+  }
+  document.getElementById('refresh').addEventListener('click',render);
+  render();
+}
