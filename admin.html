@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#293991">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="إدارة الأستاذ">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/assets/ostaz-app-icon.svg">
   <meta name="description" content="لوحة إدارة طلبات الطباعة — الأستاذ.">
   <title>إدارة المطبعة | الأستاذ</title>
   <link rel="icon" href="assets/ostaz-logo.svg?v=2" type="image/svg+xml">
@@ -38,6 +42,17 @@
         <div class="section-title"><span class="eyebrow">مركز التشغيل</span><h1>لوحة إدارة الطلبات</h1><p>تابع طلبات العملاء وحدّث مراحل التنفيذ أولًا بأول.</p></div>
         <div class="admin-actions"><span class="admin-tag" id="adminIdentity">مسجل الدخول</span><button id="logoutButton" class="btn outline" type="button">تسجيل الخروج</button></div>
       </div>
+      <section class="push-setup" aria-labelledby="pushTitle">
+        <div class="push-setup-copy">
+          <span class="push-setup-icon" aria-hidden="true">🔔</span>
+          <div>
+            <h2 id="pushTitle">إشعارات الطلبات على iPhone</h2>
+            <p id="pushStatus" role="status">فعّل الإشعارات ليصلك تنبيه فوري عند وصول طلب جديد، حتى عندما يكون التطبيق مغلقًا.</p>
+          </div>
+        </div>
+        <button id="enablePushButton" class="btn" type="button">تفعيل إشعارات الموبايل</button>
+        <p id="pushHelp" class="push-help">على iPhone: أضف لوحة الإدارة إلى الشاشة الرئيسية من Safari، ثم افتحها من الأيقونة لتفعيل الإشعارات.</p>
+      </section>
       <div class="stats">
         <div><small>كل الطلبات</small><b id="total">0</b></div>
         <div><small>طلبات جديدة</small><b id="newCount">0</b></div>
