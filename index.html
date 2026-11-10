@@ -4,12 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#293991">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="الأستاذ">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="الأستاذ">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/assets/ostaz-customer-icon.svg">
+  <link rel="icon" href="/assets/ostaz-customer-icon.svg" type="image/svg+xml">
   <meta name="description" content="الأستاذ للطباعة والخدمات — اطلب خدمات الطباعة بسهولة، واختر نوع الطباعة والورق والمقاس وأرسل ملفك للمراجعة.">
   <meta property="og:title" content="الأستاذ | للطباعة والخدمات">
   <meta property="og:description" content="كل ما تحتاجه للطباعة في مكان واحد.">
   <meta property="og:type" content="website">
   <title>الأستاذ | منصة الطباعة والخدمات</title>
-  <link rel="icon" href="assets/ostaz-logo.svg?v=2" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -62,6 +68,16 @@
         </div>
         <div class="hero-float"><b aria-hidden="true">✓</b><span>ابدأ طلبك في خطوات بسيطة</span></div>
       </div>
+    </section>
+
+    <section class="install-app section" id="installApp">
+      <div class="install-app-mark"><img src="/assets/ostaz-customer-icon.svg" alt="" width="76" height="76"></div>
+      <div class="install-app-copy">
+        <span class="eyebrow">الأستاذ على موبايلك</span>
+        <h2>خلّي الأستاذ على شاشتك الرئيسية</h2>
+        <p>ثبّت الموقع كأنه تطبيق، وافتحه بسرعة في أي وقت من غير ما تدور على الرابط.</p>
+      </div>
+      <button class="btn install-app-button" id="installAppButton" type="button">أضف التطبيق لهاتفك <span aria-hidden="true">＋</span></button>
     </section>
 
     <section id="services" class="section">
@@ -181,6 +197,20 @@
     <p>© <span id="year"></span> الأستاذ. جميع الحقوق محفوظة.</p>
     <a href="track.html">تتبع طلبك</a>
   </footer>
+  <dialog id="installGuideDialog" class="install-guide" aria-labelledby="installGuideTitle">
+    <div class="install-guide-head">
+      <img src="/assets/ostaz-customer-icon.svg" alt="" width="58" height="58">
+      <div><span class="eyebrow">تثبيت التطبيق</span><h2 id="installGuideTitle">أضف الأستاذ إلى هاتفك</h2></div>
+      <button type="button" class="install-guide-close" id="closeInstallGuide" aria-label="إغلاق">×</button>
+    </div>
+    <p id="installGuideIntro">اتبع الخطوات التالية لإضافة الأستاذ إلى الشاشة الرئيسية.</p>
+    <ol id="installGuideSteps" class="install-guide-steps">
+      <li>افتح قائمة المشاركة أو خيارات المتصفح.</li>
+      <li>اختر «إضافة إلى الشاشة الرئيسية» أو «تثبيت التطبيق».</li>
+      <li>اضغط «إضافة»، وستظهر أيقونة الأستاذ بجوار تطبيقاتك.</li>
+    </ol>
+    <button type="button" class="btn install-guide-done" id="closeInstallGuideBottom">تمام</button>
+  </dialog>
   <script type="module" src="customer.js"></script>
   <a class="facebook-float" href="https://www.facebook.com/share/1CH6R4oGHj/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="تابعنا على فيسبوك" title="تابعنا على فيسبوك">
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
