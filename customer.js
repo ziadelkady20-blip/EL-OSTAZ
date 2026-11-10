@@ -1,5 +1,60 @@
 import { upload } from 'https://esm.sh/@vercel/blob@2.9.0/client';
 
+const installButton=document.getElementById('installAppButton');
+const installDialog=document.getElementById('installGuideDialog');
+const closeInstallGuide=()=>installDialog?.close();
+let deferredInstallPrompt=null;
+
+function isAppInstalled(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+}
+function showInstallGuide(){
+  if(!installDialog)return;
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  const intro=document.getElementById('installGuideIntro');
+  const steps=document.getElementById('installGuideSteps');
+  if(ios){
+    intro.textContent='على iPhone أو iPad، أضف الموقع من Safari بهذه الخطوات:';
+    steps.innerHTML='<li>افتح الموقع من متصفح <b>Safari</b>.</li><li>اضغط زر المشاركة <b>Share</b> أسفل الشاشة.</li><li>اختر <b>إضافة إلى الشاشة الرئيسية</b> (Add to Home Screen).</li><li>اترك اسم «الأستاذ» واضغط <b>إضافة</b>.</li>';
+  }else{
+    intro.textContent='يمكنك تثبيت الأستاذ كتطبيق مستقل على هاتفك:';
+    steps.innerHTML='<li>افتح قائمة المتصفح ⋮ أو زر المشاركة.</li><li>اختر <b>تثبيت التطبيق</b> أو <b>إضافة إلى الشاشة الرئيسية</b>.</li><li>اضغط <b>تثبيت</b> أو <b>إضافة</b>.</li>';
+  }
+  installDialog.showModal();
+}
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(error=>console.warn('PWA service worker registration failed',error)));
+}
+window.addEventListener('beforeinstallprompt',event=>{
+  event.preventDefault();
+  deferredInstallPrompt=event;
+  if(installButton)installButton.innerHTML='ثبّت تطبيق الأستاذ <span aria-hidden="true">↓</span>';
+});
+window.addEventListener('appinstalled',()=>{
+  deferredInstallPrompt=null;
+  if(installButton)installButton.closest('.install-app')?.classList.add('is-installed');
+});
+if(installButton){
+  if(isAppInstalled())installButton.closest('.install-app')?.classList.add('is-installed');
+  installButton.addEventListener('click',async()=>{
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      const choice=await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt=null;
+      if(choice?.outcome==='accepted')installButton.textContent='تم إرسال طلب التثبيت';
+      return;
+    }
+    showInstallGuide();
+  });
+}
+document.getElementById('closeInstallGuide')?.addEventListener('click',closeInstallGuide);
+document.getElementById('closeInstallGuideBottom')?.addEventListener('click',closeInstallGuide);
+installDialog?.addEventListener('click',event=>{
+  if(event.target===installDialog)closeInstallGuide();
+});
+
+
 const form=document.getElementById('orderForm');
 if(form){
   const service=form.elements.service;
