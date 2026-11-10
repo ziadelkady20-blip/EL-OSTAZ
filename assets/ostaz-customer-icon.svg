@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#4056b4"/>
+    <stop offset=".55" stop-color="#293991"/>
+    <stop offset="1" stop-color="#17245f"/>
+  </linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffe8a4"/>
+    <stop offset=".5" stop-color="#e8b94f"/>
+    <stop offset="1" stop-color="#b98527"/>
+  </linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+    <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#08123e" flood-opacity=".28"/>
+  </filter>
+</defs>
+<rect width="512" height="512" rx="112" fill="url(#bg)"/>
+<rect x="13" y="13" width="486" height="486" rx="101" fill="none" stroke="url(#gold)" stroke-width="5" opacity=".95"/>
+<circle cx="256" cy="112" r="47" fill="#ffffff" opacity=".08"/>
+<g filter="url(#shadow)" transform="translate(174 58)">
+  <path d="M18 37h128v70H18z" fill="none" stroke="url(#gold)" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M34 16h96v42H34z" fill="#ffffff" opacity=".96"/>
+  <path d="M43 29h78M43 42h58" stroke="#293991" stroke-width="7" stroke-linecap="round"/>
+  <path d="M9 71h146v65H9z" fill="none" stroke="url(#gold)" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M42 105h80" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".9"/>
+</g>
+<g transform="translate(28 167) scale(.646)">
+  <path d="M77,90 L67,135 L67,140 L71,150 L122,193 L53,222 L52,211 L54,182 L40,182 L30,254 L33,263 L44,271 L57,271 L78,263 L150,217 L150,166 L148,161Z M567,83 L562,83 L534,107 L534,169 L540,169 L568,144Z M675,57 L667,58 L641,81 L641,236 L648,235 L675,212Z M112,36 L110,36 L80,66 L81,70 L111,100 L143,68 L137,60Z M340,67 L308,35 L279,64 L270,57 L250,36 L248,36 L217,68 L249,100 L278,71 L286,77 L306,98 L309,99Z M555,32 L541,38 L533,45 L532,52 L534,61 L540,63 L534,68 L534,81 L568,56 L567,44 L552,54 L537,54 L539,51 L554,44Z M619,26 L608,26 L585,49 L585,196 L522,221 L521,215 L524,182 L509,182 L500,244 L500,257 L503,264 L511,270 L527,271 L546,264 L617,219 L619,216Z M166,49 L166,224 L178,232 L204,214 L225,204 L226,236 L240,249 L270,238 L306,229 L368,221 L418,221 L449,224 L452,227 L442,249 L463,249 L493,201 L476,179 L472,177 L426,171 L376,170 L337,173 L292,181 L262,190 L259,188 L259,138 L229,150 L201,165 L200,26 L193,26Z" fill="#fff" fill-rule="evenodd"/>
+</g>
+<path d="M190 402h132" stroke="url(#gold)" stroke-width="6" stroke-linecap="round" opacity=".95"/>
+<circle cx="171" cy="402" r="4" fill="#f5d98f"/>
+<circle cx="341" cy="402" r="4" fill="#f5d98f"/>
+</svg>
