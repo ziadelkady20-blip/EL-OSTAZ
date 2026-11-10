@@ -4,6 +4,7 @@ import { getDb } from '../lib/db.js';
 import { allowMethods, readJson, safeText, sendJson } from '../lib/http.js';
 import { requireAdmin } from '../lib/auth.js';
 import { sendPrinterWhatsAppOrder } from '../lib/whatsapp.js';
+import { sendAdminPushNotification } from '../lib/push.js';
 
 const SERVICES = ['طباعة وجه واحد (ألوان)', 'طباعة وجهين (ألوان)', 'طباعة وجه واحد (أبيض وأسود)', 'طباعة وجهين (أبيض وأسود)', 'شهادات', 'صور شخصية'];
 const PAPERS = ['ورق عادي', 'ورق جلوسي'];
@@ -77,6 +78,12 @@ export default async function handler(req, res) {
         notes,
         file_name: originalName,
       };
+      let push = { sent: 0, configured: false };
+      try {
+        push = await sendAdminPushNotification(savedOrder);
+      } catch (pushError) {
+        console.error('admin push notification error', { orderCode: code, message: pushError?.message });
+      }
       let whatsapp = { sent: false, configured: false, reason: 'WhatsApp notification was not attempted' };
       try {
         whatsapp = await sendPrinterWhatsAppOrder({ order: savedOrder, file: { ...file, name: originalName } });
@@ -85,7 +92,7 @@ export default async function handler(req, res) {
         console.error('order WhatsApp notification error', { orderCode: code, message: whatsappError?.message });
         whatsapp = { sent: false, configured: true, reason: 'WhatsApp delivery failed; order remains safely saved' };
       }
-      return sendJson(res, 201, { ok: true, order: rows[0], trackingUrl: `/track.html?code=${code}`, whatsapp });
+      return sendJson(res, 201, { ok: true, order: rows[0], trackingUrl: `/track.html?code=${code}`, whatsapp, push });
     } catch (dbError) {
       try { await del(file.pathname, { access: 'private' }); } catch {}
       throw dbError;
