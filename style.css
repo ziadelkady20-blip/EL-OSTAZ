@@ -345,3 +345,52 @@ footer a:not(.brand):hover{color:#fff}
 @media(prefers-reduced-motion:reduce){
   .whatsapp-float{transition:none}
 }
+
+
+/* Floating Facebook page button, stacked above WhatsApp */
+.facebook-float{
+  position:fixed;
+  left:24px;
+  bottom:86px;
+  z-index:100;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:11px 17px 11px 13px;
+  border:1px solid rgba(255,255,255,.24);
+  border-radius:999px;
+  background:#1877f2;
+  color:#fff;
+  box-shadow:0 8px 24px rgba(24,119,242,.25);
+  font:900 13px 'Cairo',Tahoma,sans-serif;
+  text-decoration:none;
+  transition:transform .2s ease,background .2s ease,box-shadow .2s ease;
+}
+.facebook-float:hover{
+  transform:translateY(-3px);
+  background:#0866ff;
+  box-shadow:0 12px 28px rgba(24,119,242,.32);
+}
+.facebook-float:focus-visible{
+  outline:3px solid rgba(24,119,242,.3);
+  outline-offset:4px;
+}
+.facebook-float svg{
+  display:block;
+  width:27px;
+  height:27px;
+  flex:0 0 27px;
+}
+@media(max-width:700px){
+  .facebook-float{
+    left:16px;
+    bottom:76px;
+    gap:8px;
+    padding:10px 14px 10px 11px;
+    font-size:12px;
+  }
+  .facebook-float svg{width:25px;height:25px;flex-basis:25px}
+}
+@media(prefers-reduced-motion:reduce){
+  .facebook-float{transition:none}
+}
