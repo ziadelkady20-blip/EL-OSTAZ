@@ -1,65 +1,66 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#293991">
   <meta name="description" content="لوحة إدارة طلبات الطباعة — الأستاذ.">
-  <title>لوحة المطبعة | الأستاذ</title>
+  <title>إدارة المطبعة | الأستاذ</title>
   <link rel="icon" href="assets/ostaz-logo.svg?v=2" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="admin-body">
   <header class="top">
-    <a class="brand" href="index.html" aria-label="الأستاذ — الصفحة الرئيسية">
-      <img class="brand-logo" src="assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ">
-    </a>
-    <nav aria-label="القائمة الرئيسية">
-      <a href="index.html">واجهة العميل</a>
-      <a href="index.html#services">الخدمات</a>
-    </nav>
-    <span class="admin-tag">لوحة إدارة المطبعة</span>
+    <a class="brand" href="index.html" aria-label="الأستاذ — الرئيسية"><img class="brand-logo" src="assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ"></a>
+    <nav aria-label="القائمة الرئيسية"><a href="index.html">واجهة العميل</a><a href="track.html">تتبع طلب</a></nav>
+    <span class="admin-tag">إدارة المطبعة</span>
   </header>
 
   <main class="admin-main">
-    <div class="admin-heading">
-      <div class="section-title">
-        <span class="eyebrow">نظرة عامة</span>
-        <h1>إدارة الطلبات</h1>
-        <p>راجع الطلبات المسجلة وحدّث حالة كل طلب من مكان واحد.</p>
+    <section id="loginView" class="admin-login-wrap">
+      <div class="admin-login-card">
+        <span class="form-card-icon">🔐</span>
+        <span class="eyebrow">منطقة الإدارة</span>
+        <h1>تسجيل دخول المطبعة</h1>
+        <p>سجّل الدخول للوصول إلى الطلبات وتحديث حالتها.</p>
+        <form id="loginForm" class="admin-login-form">
+          <label>اسم المستخدم<input name="username" autocomplete="username" required placeholder="اسم المستخدم"></label>
+          <label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required placeholder="كلمة المرور"></label>
+          <button class="btn" type="submit">دخول لوحة التحكم <span>←</span></button>
+          <div id="loginError" class="form-error" role="alert"></div>
+        </form>
       </div>
-      <span class="admin-tag">واجهة تجريبية</span>
-    </div>
+    </section>
 
-    <div class="stats">
-      <div class="stat-card"><small>إجمالي الطلبات</small><b id="total">0</b></div>
-      <div class="stat-card"><small>طلبات جديدة</small><b id="newCount">0</b></div>
-      <div class="stat-card"><small>قيد التنفيذ</small><b id="working">0</b></div>
-      <div class="stat-card"><small>طلبات مكتملة</small><b id="done">0</b></div>
-    </div>
-
-    <div class="toolbar">
-      <h2>طلبات العملاء</h2>
-      <button class="btn outline" id="refresh" type="button">تحديث القائمة <span aria-hidden="true">↻</span></button>
-    </div>
-
-    <div id="orders" class="orders" aria-live="polite">
-      <div class="empty">لا توجد طلبات حتى الآن.</div>
-    </div>
-
-    <p class="warning"><strong>تنبيه تشغيلي:</strong> هذه لوحة واجهة تجريبية؛ البيانات الحالية محفوظة محليًا داخل المتصفح وليست قاعدة بيانات مشتركة. كما أن رفع الملفات وتسجيل الدخول والصلاحيات لم تُفعّل بعد. لا تستخدم هذه النسخة لاستقبال طلبات عملاء فعلية قبل استكمال ربط الخادم وقاعدة البيانات والتخزين الآمن.</p>
+    <section id="dashboardView" hidden>
+      <div class="admin-heading">
+        <div class="section-title"><span class="eyebrow">مركز التشغيل</span><h1>لوحة إدارة الطلبات</h1><p>تابع طلبات العملاء وحدّث مراحل التنفيذ أولًا بأول.</p></div>
+        <div class="admin-actions"><span class="admin-tag" id="adminIdentity">مسجل الدخول</span><button id="logoutButton" class="btn outline" type="button">تسجيل الخروج</button></div>
+      </div>
+      <div class="stats">
+        <div><small>كل الطلبات</small><b id="total">0</b></div>
+        <div><small>طلبات جديدة</small><b id="newCount">0</b></div>
+        <div><small>قيد الطباعة</small><b id="printingCount">0</b></div>
+        <div><small>جاهزة للاستلام</small><b id="readyCount">0</b></div>
+      </div>
+      <div class="admin-toolbar">
+        <div><h2>طلبات العملاء</h2><p id="lastUpdated">—</p></div>
+        <button class="btn outline" id="refresh" type="button">تحديث القائمة ↻</button>
+      </div>
+      <div class="admin-filters">
+        <label>بحث<input id="searchOrders" type="search" placeholder="رقم الطلب أو الاسم أو الهاتف"></label>
+        <label>تصفية الحالة<select id="statusFilter"><option value="">كل الحالات</option><option value="new">جديد</option><option value="confirmed">تم التأكيد</option><option value="printing">قيد الطباعة</option><option value="ready">جاهز للاستلام</option><option value="delivered">تم التسليم</option><option value="cancelled">ملغي</option></select></label>
+      </div>
+      <div id="orders" class="admin-orders" aria-live="polite"><div class="empty">جاري تحميل الطلبات...</div></div>
+      <div id="adminNotice" class="admin-notice" role="status" aria-live="polite"></div>
+    </section>
   </main>
-
   <footer>
-    <a class="brand" href="index.html" aria-label="الأستاذ — الصفحة الرئيسية">
-      <img class="brand-logo" src="assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ">
-    </a>
+    <a class="brand" href="index.html"><img class="brand-logo" src="assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ"></a>
     <div class="footer-copy"><strong>الأستاذ للطباعة والخدمات</strong><small>لوحة إدارة المطبعة</small></div>
-    <a href="index.html">العودة لواجهة العميل</a>
+    <a href="index.html">العودة للموقع</a>
   </footer>
-  <script src="app.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>
