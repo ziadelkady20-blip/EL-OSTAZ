@@ -1,8 +1,186 @@
 <!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#293d91"><title>الأستاذ | خدمات الطباعة</title><link rel="stylesheet" href="style.css"></head>
-<body><header class="top"><a class="brand" href="index.html"><span class="mark">أ</span><span>الأستاذ<small>للطباعة والخدمات</small></span></a><nav><a href="#services">الخدمات</a><a href="#how">طريقة الطلب</a><a href="admin.html">لوحة المطبعة</a></nav><a class="btn light" href="#order">اطلب الآن</a></header>
-<main><section class="hero"><div><span class="eyebrow">كل خدمات الطباعة في مكان واحد</span><h1>اطبع ملفاتك<br><em>بسهولة.. وبجودة.</em></h1><p>اختار الخدمة والمقاس ونوع الورق، وارفع ملفاتك، وسيتم تجهيز طلبك ومتابعته من المطبعة.</p><a class="btn" href="#order">ابدأ طلبك <b>←</b></a><div class="trust"><span>✓ طلب سهل</span><span>✓ خيارات واضحة</span><span>✓ متابعة الطلب</span></div></div><div class="hero-card"><div class="paper"><div class="paper-head">الأستاذ</div><div class="paper-lines"></div><div class="paper-lines short"></div><div class="paper-lines"></div><div class="paper-lines mid"></div><div class="paper-stamp">جودة تليق بك</div></div><div class="floating">طباعة ألوان • أبيض وأسود</div></div></section>
-<section id="services" class="section"><div class="section-title"><span class="eyebrow">خدماتنا</span><h2>اختار نوع الطباعة</h2><p>حدد الخدمة المناسبة لملفك.</p></div><div class="services">
-<button class="service" data-service="طباعة وجه واحد (ألوان)"><span>🎨</span><b>وجه واحد</b><small>ألوان</small></button><button class="service" data-service="طباعة وجهين (ألوان)"><span>🖨️</span><b>وجهين</b><small>ألوان</small></button><button class="service" data-service="طباعة وجه واحد (أبيض وأسود)"><span>📄</span><b>وجه واحد</b><small>أبيض وأسود</small></button><button class="service" data-service="طباعة وجهين (أبيض وأسود)"><span>📑</span><b>وجهين</b><small>أبيض وأسود</small></button><button class="service" data-service="شهادات"><span>🏅</span><b>شهادات</b><small>طباعة مميزة</small></button><button class="service" data-service="صور شخصية"><span>🪪</span><b>صور شخصية</b><small>مقاسات صور</small></button></div></section>
-<section id="order" class="section order-section"><div class="section-title"><span class="eyebrow">طلب جديد</span><h2>جهّز طلب الطباعة</h2><p>املأ البيانات التالية وسنستلم طلبك.</p></div><form id="orderForm" class="form-card"><div class="fields"><label>الاسم بالكامل<input name="customer" required placeholder="اكتب اسمك"></label><label>رقم الهاتف<input name="phone" required inputmode="tel" placeholder="01xxxxxxxxx"></label><label class="wide">نوع الخدمة<select name="service" id="service" required><option value="">اختر الخدمة</option><option>طباعة وجه واحد (ألوان)</option><option>طباعة وجهين (ألوان)</option><option>طباعة وجه واحد (أبيض وأسود)</option><option>طباعة وجهين (أبيض وأسود)</option><option>شهادات</option><option>صور شخصية</option></select></label><label>نوع الورق<select name="paper" id="paper"><option>ورق عادي</option><option>ورق جلوسي</option></select></label><label>المقاس<select name="size"><option>A4 (20 × 30)</option><option>A3 (30 × 40)</option></select></label><label>التقفيل<select name="finish"><option>بدون</option><option>تكعيب</option><option>دبوس</option></select></label><label>عدد النسخ<input name="copies" type="number" min="1" value="1" required></label><label class="wide">ملف الطباعة<input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required><small>الملفات المسموحة: PDF وJPG وPNG. الحد الأقصى حسب إعدادات الاستضافة.</small></label><label class="wide">ملاحظات إضافية<textarea name="notes" rows="3" placeholder="أي تفاصيل تحب توضحها للمطبعة"></textarea></label></div><div class="form-bottom"><p>سيتم مراجعة الطلب وتأكيد السعر قبل التنفيذ.</p><button class="btn" type="submit">إرسال الطلب</button></div><div id="notice" role="status"></div></form></section>
-<section id="how" class="section how"><div class="section-title"><span class="eyebrow">ببساطة</span><h2>تطلب في 3 خطوات</h2></div><div class="steps"><div><strong>01</strong><h3>اختار الخدمة</h3><p>حدد نوع الطباعة والمقاس والورق.</p></div><div><strong>02</strong><h3>ارفع الملف</h3><p>أرفق ملفك واكتب أي ملاحظات.</p></div><div><strong>03</strong><h3>تابع طلبك</h3><p>المطبعة تراجع الطلب وتتواصل معك لتأكيد التفاصيل.</p></div></div></section></main><footer><div class="brand"><span class="mark">أ</span><span>الأستاذ<small>للطباعة والخدمات</small></span></div><p>© <span id="year"></span> الأستاذ. جميع الحقوق محفوظة.</p><a href="admin.html">دخول إدارة المطبعة</a></footer><script src="app.js"></script></body></html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#293991">
+  <meta name="description" content="الأستاذ للطباعة والخدمات — اطلب خدمات الطباعة بسهولة، واختر نوع الطباعة والورق والمقاس وأرسل ملفك للمراجعة.">
+  <meta property="og:title" content="الأستاذ | للطباعة والخدمات">
+  <meta property="og:description" content="كل ما تحتاجه للطباعة في مكان واحد.">
+  <meta property="og:type" content="website">
+  <title>الأستاذ | منصة الطباعة والخدمات</title>
+  <link rel="icon" href="assets/ostaz-logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">تخطي إلى المحتوى</a>
+  <header class="top">
+    <a class="brand" href="index.html" aria-label="الأستاذ — الصفحة الرئيسية">
+      <img class="brand-logo" src="assets/ostaz-logo.svg" alt="شعار الأستاذ">
+    </a>
+    <nav aria-label="القائمة الرئيسية">
+      <a href="#services">الخدمات</a>
+      <a href="#how">طريقة الطلب</a>
+      <a href="admin.html">إدارة المطبعة</a>
+    </nav>
+    <a class="btn header-cta" href="#order">اطلب الآن <span aria-hidden="true">←</span></a>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">منصة الأستاذ الرقمية</span>
+        <h1>كل ما تحتاجه للطباعة<br><em>في مكان واحد.</em></h1>
+        <p>اختار الخدمة المناسبة، حدّد الورق والمقاس، وارفع ملفك في خطوات بسيطة. المطبعة تراجع التفاصيل وتتواصل معك لتأكيد السعر والتنفيذ.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#order">ابدأ طلبك <span aria-hidden="true">←</span></a>
+          <a class="text-link" href="#services">اكتشف خدماتنا <span aria-hidden="true">↙</span></a>
+        </div>
+        <div class="trust" aria-label="مميزات الطلب">
+          <span><b>01</b> خطوات واضحة</span>
+          <span><b>02</b> اختيارات مرنة</span>
+          <span><b>03</b> مراجعة قبل التنفيذ</span>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-label="الهوية البصرية لمنصة الأستاذ">
+        <div class="hero-card">
+          <div class="hero-card-head">
+            <span>الأستاذ للطباعة والخدمات</span>
+            <span class="status-chip">خدمة سهلة وواضحة</span>
+          </div>
+          <img class="hero-logo" src="assets/ostaz-logo.svg" alt="اللوجو الرسمي للأستاذ">
+          <p class="hero-tagline">للطباعة والخدمات المكتبية</p>
+          <div class="hero-pills">
+            <span>طباعة ألوان</span>
+            <span>أبيض وأسود</span>
+            <span>شهادات وصور</span>
+          </div>
+        </div>
+        <div class="hero-float"><b aria-hidden="true">✓</b><span>ابدأ طلبك في خطوات بسيطة</span></div>
+      </div>
+    </section>
+
+    <section id="services" class="section">
+      <div class="section-title">
+        <span class="eyebrow">خدماتنا</span>
+        <h2>اختار نوع الطباعة</h2>
+        <p>اضغط على الخدمة المناسبة، وسيتم تحديدها تلقائيًا داخل نموذج الطلب.</p>
+      </div>
+      <div class="services">
+        <button class="service" type="button" data-service="طباعة وجه واحد (ألوان)" aria-pressed="false">
+          <span class="service-icon" aria-hidden="true">🎨</span><b>وجه واحد</b><small>طباعة ألوان</small>
+        </button>
+        <button class="service" type="button" data-service="طباعة وجهين (ألوان)" aria-pressed="false">
+          <span class="service-icon" aria-hidden="true">🖨️</span><b>وجهين</b><small>طباعة ألوان</small>
+        </button>
+        <button class="service" type="button" data-service="طباعة وجه واحد (أبيض وأسود)" aria-pressed="false">
+          <span class="service-icon" aria-hidden="true">📄</span><b>وجه واحد</b><small>أبيض وأسود</small>
+        </button>
+        <button class="service" type="button" data-service="طباعة وجهين (أبيض وأسود)" aria-pressed="false">
+          <span class="service-icon" aria-hidden="true">📑</span><b>وجهين</b><small>أبيض وأسود</small>
+        </button>
+        <button class="service" type="button" data-service="شهادات" aria-pressed="false">
+          <span class="service-icon" aria-hidden="true">🏅</span><b>شهادات</b><small>طباعة مميزة</small>
+        </button>
+        <button class="service" type="button" data-service="صور شخصية" aria-pressed="false">
+          <span class="service-icon" aria-hidden="true">🪪</span><b>صور شخصية</b><small>مقاسات صور متنوعة</small>
+        </button>
+      </div>
+    </section>
+
+    <section id="order" class="section order-section">
+      <div class="section-title">
+        <span class="eyebrow">طلب جديد</span>
+        <h2>جهّز طلب الطباعة</h2>
+        <p>أدخل بياناتك واختياراتك، وسنراجع الطلب قبل تأكيد السعر والتنفيذ.</p>
+      </div>
+      <form id="orderForm" class="form-card">
+        <div class="form-card-head">
+          <span class="form-card-icon" aria-hidden="true">✦</span>
+          <div><h3>بيانات الطلب</h3><p>املأ البيانات المطلوبة بدقة</p></div>
+        </div>
+        <div class="fields">
+          <label>الاسم بالكامل
+            <input name="customer" autocomplete="name" required placeholder="اكتب اسمك بالكامل">
+          </label>
+          <label>رقم الهاتف
+            <input name="phone" type="tel" autocomplete="tel" required inputmode="tel" placeholder="01xxxxxxxxx">
+          </label>
+          <label class="wide">نوع الخدمة
+            <select name="service" id="service" required>
+              <option value="">اختر الخدمة</option>
+              <option>طباعة وجه واحد (ألوان)</option>
+              <option>طباعة وجهين (ألوان)</option>
+              <option>طباعة وجه واحد (أبيض وأسود)</option>
+              <option>طباعة وجهين (أبيض وأسود)</option>
+              <option>شهادات</option>
+              <option>صور شخصية</option>
+            </select>
+          </label>
+          <label>نوع الورق
+            <select name="paper" id="paper">
+              <option>ورق عادي</option>
+              <option>ورق جلوسي</option>
+            </select>
+          </label>
+          <label>المقاس
+            <select name="size">
+              <option>A4 (20 × 30)</option>
+              <option>A3 (30 × 40)</option>
+            </select>
+          </label>
+          <label>التقفيل
+            <select name="finish">
+              <option>بدون</option>
+              <option>تكعيب</option>
+              <option>دبوس</option>
+            </select>
+          </label>
+          <label>عدد النسخ
+            <input name="copies" type="number" min="1" value="1" required>
+          </label>
+          <label class="wide">ملف الطباعة
+            <input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required aria-describedby="fileHelp">
+            <small id="fileHelp" class="field-note">الملفات المسموحة: PDF وJPG وPNG. لا ترفع ملفات تحتوي على بيانات حساسة غير لازمة للطباعة.</small>
+          </label>
+          <label class="wide">ملاحظات إضافية
+            <textarea name="notes" rows="3" placeholder="اكتب أي تفاصيل إضافية تحتاج المطبعة تعرفها"></textarea>
+          </label>
+        </div>
+        <div class="form-bottom">
+          <p>سيتم مراجعة الطلب وتأكيد السعر قبل التنفيذ.</p>
+          <button class="btn" type="submit">إرسال الطلب <span aria-hidden="true">←</span></button>
+        </div>
+        <div id="notice" role="status" aria-live="polite"></div>
+      </form>
+    </section>
+
+    <section id="how" class="section how">
+      <div class="section-title">
+        <span class="eyebrow">ببساطة</span>
+        <h2>تطلب في 3 خطوات</h2>
+        <p>خلّينا تجربة طلب الطباعة أسهل وأوضح من البداية للنهاية.</p>
+      </div>
+      <div class="steps">
+        <div><strong>01</strong><h3>اختار الخدمة</h3><p>حدد نوع الطباعة والمقاس ونوع الورق وعدد النسخ.</p></div>
+        <div><strong>02</strong><h3>ارفع الملف</h3><p>أرفق ملف الطباعة واكتب أي ملاحظات مهمة.</p></div>
+        <div><strong>03</strong><h3>تابع طلبك</h3><p>المطبعة تراجع التفاصيل وتتواصل معك لتأكيد السعر والتنفيذ.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand" href="index.html" aria-label="الأستاذ — الصفحة الرئيسية">
+      <img class="brand-logo" src="assets/ostaz-logo.svg" alt="شعار الأستاذ">
+    </a>
+    <div class="footer-copy"><strong>الأستاذ للطباعة والخدمات</strong><small>خدمات الطباعة بخطوات أبسط.</small></div>
+    <p>© <span id="year"></span> الأستاذ. جميع الحقوق محفوظة.</p>
+    <a href="admin.html">دخول إدارة المطبعة</a>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
