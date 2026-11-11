@@ -58,64 +58,127 @@ installDialog?.addEventListener('click',event=>{
 const form=document.getElementById('orderForm');
 if(form){
   const service=form.elements.service;
-  const paper=form.elements.paper;
   const buttons=[...document.querySelectorAll('.service')];
   const fileInput=form.elements.file;
   const notice=document.getElementById('notice');
   const submit=form.querySelector('button[type="submit"]');
   const fileHelp=document.getElementById('fileHelp');
+  const filesHost=document.getElementById('filesContainer');
   const estimateHost=document.getElementById('priceEstimate');
   const estimateHint=document.getElementById('priceEstimateHint');
   const estimateLines=document.getElementById('priceEstimateLines');
   const estimateTotal=document.getElementById('priceEstimateTotal');
+  const estimateTotalLabel=document.getElementById('priceEstimateTotalLabel');
+  const estimateNote=document.getElementById('priceEstimateNote');
   const MAX_FILE=5*1024**4;
+  const MAX_FILES=20;
   const PAGE_PRICE=0.75;
-  let selectedPdfPages=null;
-  let pdfReadToken=0;
+  const SERVICES=['طباعة وجه واحد (ألوان)','طباعة وجهين (ألوان)','طباعة وجه واحد (أبيض وأسود)','طباعة وجهين (أبيض وأسود)','شهادات','صور شخصية'];
+  const PAPERS=['ورق عادي','ورق جلوسي'];
+  const SIZES=['A4 (20 × 30)','A3 (30 × 40)'];
+  const FINISHES=['بدون','تكعيب','دبوس'];
+  const allowedTypes=['application/pdf','image/jpeg','image/png'];
+  const items=[];
   let pdfjsPromise=null;
 
+  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function formatMoney(value){
     return new Intl.NumberFormat('ar-EG',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value)+' جنيه';
   }
-  function isStandardPrintService(){
-    return ['طباعة وجه واحد (ألوان)','طباعة وجهين (ألوان)','طباعة وجه واحد (أبيض وأسود)','طباعة وجهين (أبيض وأسود)'].includes(service.value);
+  function isStandardService(value){
+    return SERVICES.slice(0,4).includes(value);
   }
-  function updatePriceEstimate(){
-    if(!estimateHost)return;
-    const file=fileInput.files[0];
-    if(!file||file.type!=='application/pdf'){
-      estimateHost.hidden=true;
-      return;
-    }
-    estimateHost.hidden=false;
-    if(!isStandardPrintService()){
-      estimateHint.textContent='التسعير التلقائي متاح لخدمات الطباعة العادية فقط.';
-      estimateLines.innerHTML='<div class="price-estimate-line"><span>الخدمة المختارة</span><b>يتم تأكيد سعرها من المطبعة</b></div>';
-      estimateTotal.textContent='بعد المراجعة';
-      return;
-    }
-    if(!selectedPdfPages){
-      estimateHint.textContent='جارٍ قراءة عدد صفحات ملف PDF...';
-      estimateLines.innerHTML='';
-      estimateTotal.textContent='—';
-      return;
-    }
-    const copies=Math.max(1,Number.parseInt(form.elements.copies.value,10)||1);
-    const duplex=service.value.includes('وجهين');
-    const sheetsPerCopy=duplex?Math.ceil(selectedPdfPages/2):selectedPdfPages;
+  function fileTypeOf(file){
+    if(allowedTypes.includes(file.type))return file.type;
+    const name=file.name.toLowerCase();
+    if(name.endsWith('.pdf'))return 'application/pdf';
+    if(name.endsWith('.jpg')||name.endsWith('.jpeg'))return 'image/jpeg';
+    if(name.endsWith('.png'))return 'image/png';
+    return '';
+  }
+  function getEstimate(item){
+    if(item.fileType!=='application/pdf'||!item.pageCount||!isStandardService(item.service))return null;
+    const copies=Number(item.copies);
+    if(!Number.isInteger(copies)||copies<1||copies>500)return null;
+    const duplex=item.service.includes('وجهين');
+    const sheetsPerCopy=duplex?Math.ceil(item.pageCount/2):item.pageCount;
     const totalSheets=sheetsPerCopy*copies;
-    const total=totalSheets*PAGE_PRICE;
-    const rows=[
-      ['عدد صفحات الملف',selectedPdfPages+' صفحة'],
-      ['طريقة الطباعة',duplex?'وجهين':'وجه واحد'],
-      ['الأوراق لكل نسخة',sheetsPerCopy+' ورقة'],
-      ['عدد النسخ',copies+' نسخة'],
-      ['سعر الورقة',formatMoney(PAGE_PRICE)],
-      ['إجمالي الأوراق',totalSheets+' ورقة']
-    ];
-    estimateHint.textContent=duplex?'تم احتساب كل ورقة بوجهين.':'تم احتساب كل صفحة كوجه مستقل.';
-    estimateLines.innerHTML=rows.map(([label,value])=>'<div class="price-estimate-line"><span>'+label+'</span><b>'+value+'</b></div>').join('');
-    estimateTotal.textContent=formatMoney(total);
+    return {sheetsPerCopy,totalSheets,price:Number((totalSheets*PAGE_PRICE).toFixed(2))};
+  }
+  function options(values,selected){
+    return values.map(value=>'<option value="'+esc(value)+'" '+(value===selected?'selected':'')+'>'+esc(value)+'</option>').join('');
+  }
+  function pageStatus(item){
+    if(item.fileType!=='application/pdf')return 'صورة — التسعير بعد مراجعة المطبعة';
+    if(item.pageStatus==='reading')return 'جارٍ قراءة صفحات ملف PDF...';
+    if(item.pageStatus==='error')return 'تعذرت قراءة الملف؛ أعد حفظه كـ PDF عادي';
+    return item.pageCount+' صفحة';
+  }
+  function cardPriceText(item){
+    const estimate=getEstimate(item);
+    if(estimate)return 'تكلفة هذا الملف: '+formatMoney(estimate.price)+' · '+estimate.totalSheets+' ورقة';
+    if(item.fileType==='application/pdf'&&item.pageStatus==='reading')return 'جارٍ حساب التكلفة...';
+    return 'السعر يحتاج مراجعة المطبعة';
+  }
+  function fileCard(item,index){
+    const special=item.service==='شهادات'||item.service==='صور شخصية';
+    return '<article class="file-item-card" data-item-id="'+esc(item.id)+'">'+
+      '<div class="file-item-head"><div class="file-item-title"><span class="file-item-number">'+(index+1)+'</span><div><b>'+esc(item.file.name)+'</b><small>'+esc((item.file.size/1024/1024).toFixed(2))+' MB · '+esc(pageStatus(item))+'</small></div></div><button type="button" class="file-remove" data-remove-item="'+esc(item.id)+'">حذف الملف ×</button></div>'+
+      '<div class="file-item-grid">'+
+        '<label>الخدمة<select data-field="service">'+options(SERVICES,item.service)+'</select></label>'+
+        '<label>نوع الورق<select data-field="paper">'+PAPERS.map(value=>'<option value="'+esc(value)+'" '+(value===item.paper?'selected':'')+' '+(special&&value==='ورق عادي'?'disabled':'')+'>'+esc(value)+'</option>').join('')+'</select></label>'+
+        '<label>المقاس<select data-field="size">'+options(SIZES,item.size)+'</select></label>'+
+        '<label>التقفيل<select data-field="finish">'+options(FINISHES,item.finish)+'</select></label>'+
+        '<label>عدد النسخ<input data-field="copies" type="number" min="1" max="500" step="1" value="'+esc(item.copies)+'" required></label>'+
+      '</div>'+
+      '<label class="file-item-notes">ملاحظات تخص هذا الملف<textarea data-field="notes" rows="2" placeholder="مثال: الطباعة من صفحة ١ إلى ١٠ فقط">'+esc(item.notes||'')+'</textarea></label>'+
+      '<div class="file-item-price" aria-live="polite">'+esc(cardPriceText(item))+'</div>'+
+      '<small class="file-upload-status">'+esc(item.uploadStatus||'جاهز للرفع مع الطلب')}</small>'+
+    '</article>';
+  }
+  function renderFiles(){
+    if(!items.length){
+      filesHost.innerHTML='<div class="files-empty">لم تتم إضافة ملفات بعد. اختر ملفاتك لتحديد إعدادات كل ملف.</div>';
+    }else{
+      filesHost.innerHTML=items.map(fileCard).join('');
+    }
+    renderEstimate();
+  }
+  function renderEstimate(){
+    if(!items.length){estimateHost.hidden=true;return;}
+    estimateHost.hidden=false;
+    const estimates=items.map(getEstimate);
+    const priced=estimates.filter(Boolean);
+    const subtotal=priced.reduce((sum,item)=>sum+item.price,0);
+    const allPriced=priced.length===items.length;
+    estimateHint.textContent=allPriced
+      ?'تم حساب تكلفة كل الملفات حسب إعدادات كل ملف.'
+      :'بعض الملفات تحتاج تسعيرًا يدويًا من المطبعة؛ المعروض حاليًا هو مجموع الملفات القابلة للحساب فقط.';
+    estimateLines.innerHTML=items.map((item,index)=>{
+      const estimate=estimates[index];
+      const details=[
+        item.service,
+        item.paper,
+        item.size,
+        'التقفيل: '+item.finish,
+        'النسخ: '+item.copies
+      ].join(' · ');
+      const pageDetails=item.pageCount
+        ?'الصفحات: '+item.pageCount+' · الأوراق لكل نسخة: '+(estimate?estimate.sheetsPerCopy:'—')+' · إجمالي الأوراق: '+(estimate?estimate.totalSheets:'—')
+        :pageStatus(item);
+      const price=estimate?formatMoney(estimate.price):(item.pageStatus==='reading'?'جارٍ الحساب':'يحتاج تسعيرًا');
+      return '<div class="price-estimate-file"><div class="price-estimate-file-head"><b>'+(index+1)+'. '+esc(item.file.name)+'</b><strong>'+esc(price)+'</strong></div><small>'+esc(details)+'</small><small>'+esc(pageDetails)+'</small></div>';
+    }).join('');
+    estimateTotalLabel.textContent=allPriced?'إجمالي كل الملفات':'المجموع المحسوب حاليًا';
+    estimateTotal.textContent=priced.length?formatMoney(subtotal):'بعد مراجعة المطبعة';
+    estimateNote.textContent=allPriced
+      ?'سعر الورقة ٧٥ قرشًا. هذا إجمالي تقديري قبل مراجعة المطبعة وتأكيد الطلب.'
+      :'الملفات التي يظهر أمامها «يحتاج تسعيرًا» ستضاف بعد مراجعة المطبعة؛ لا يعتبر المجموع الحالي إجماليًا نهائيًا.';
+    items.forEach(item=>{
+      const card=filesHost.querySelector('[data-item-id="'+item.id+'"]');
+      const priceHost=card?.querySelector('.file-item-price');
+      if(priceHost)priceHost.textContent=cardPriceText(item);
+    });
   }
   async function readPdfPageCount(file){
     if(!pdfjsPromise){
@@ -127,21 +190,20 @@ if(form){
     const pdfjs=await pdfjsPromise;
     const bytes=new Uint8Array(await file.arrayBuffer());
     const pdf=await pdfjs.getDocument({data:bytes}).promise;
-    const pages=pdf.numPages;
-    await pdf.destroy();
-    if(!Number.isInteger(pages)||pages<1||pages>10000)throw new Error('عدد صفحات الملف غير صالح أو يتجاوز ١٠٠٠٠ صفحة.');
-    return pages;
+    try{
+      const pages=pdf.numPages;
+      if(!Number.isInteger(pages)||pages<1||pages>10000)throw new Error('عدد صفحات الملف غير صالح أو يتجاوز ١٠٠٠٠ صفحة.');
+      return pages;
+    }finally{
+      await pdf.destroy();
+    }
   }
-
   function syncServices(){
     buttons.forEach(button=>{
       const active=button.dataset.service===service.value;
       button.classList.toggle('selected',active);
       button.setAttribute('aria-pressed',String(active));
     });
-    const special=service.value==='شهادات'||service.value==='صور شخصية';
-    paper.options[0].disabled=special;
-    if(special) paper.value='ورق جلوسي';
   }
   buttons.forEach(button=>button.addEventListener('click',()=>{
     service.value=button.dataset.service;
@@ -149,81 +211,171 @@ if(form){
     document.getElementById('order').scrollIntoView({behavior:'smooth',block:'start'});
   }));
   service.addEventListener('change',syncServices);
-  service.addEventListener('change',updatePriceEstimate);
-  form.elements.copies.addEventListener('input',updatePriceEstimate);
+
   fileInput.addEventListener('change',async()=>{
-    const token=++pdfReadToken;
-    selectedPdfPages=null;
-    const file=fileInput.files[0];
-    if(!file){
-      fileHelp.textContent='الملفات المسموحة PDF وJPG وPNG. ارفع ملفات الطباعة مباشرة وبالحجم الأصلي.';
-      updatePriceEstimate();
-      return;
-    }
-    const mb=(file.size/1024/1024).toFixed(2);
-    if(file.type==='application/pdf'){
-      fileHelp.textContent='تم اختيار PDF ('+mb+' ميجابايت). جارٍ قراءة عدد الصفحات...';
-      updatePriceEstimate();
-      try{
-        const pages=await readPdfPageCount(file);
-        if(token!==pdfReadToken)return;
-        selectedPdfPages=pages;
-        fileHelp.textContent='الملف: '+file.name+' — '+mb+' ميجابايت — '+pages+' صفحة';
-        updatePriceEstimate();
-      }catch(error){
-        if(token!==pdfReadToken)return;
-        fileHelp.textContent=error.message||'تعذرت قراءة ملف PDF. جرّب حفظه كملف PDF عادي وغير محمي بكلمة مرور.';
-        updatePriceEstimate();
+    const selected=Array.from(fileInput.files||[]);
+    fileInput.value='';
+    if(!selected.length)return;
+    let added=0;
+    for(const file of selected){
+      if(items.length>=MAX_FILES){
+        fileHelp.textContent='الحد الأقصى '+MAX_FILES+' ملفًا في الطلب الواحد. احذف ملفًا إذا أردت إضافة غيره.';
+        break;
       }
-    }else{
-      fileHelp.textContent='الملف المختار: '+file.name+' — '+mb+' ميجابايت. التسعير التلقائي متاح لملفات PDF.';
-      updatePriceEstimate();
+      const type=fileTypeOf(file);
+      if(!type){fileHelp.textContent='الملف '+file.name+' غير مدعوم. ارفع PDF أو JPG أو PNG.';continue;}
+      if(file.size<1||file.size>MAX_FILE){fileHelp.textContent='حجم الملف '+file.name+' غير صالح أو أكبر من الحد المسموح.';continue;}
+      const item={
+        id:crypto.randomUUID(),
+        file,
+        fileType:type,
+        service:service.value||SERVICES[0],
+        paper:(service.value==='شهادات'||service.value==='صور شخصية')?'ورق جلوسي':'ورق عادي',
+        size:SIZES[0],
+        finish:FINISHES[0],
+        copies:1,
+        pageCount:null,
+        pageStatus:type==='application/pdf'?'reading':'image',
+        notes:'',
+        uploadStatus:'جاهز للرفع مع الطلب'
+      };
+      items.push(item);
+      added++;
     }
+    renderFiles();
+    fileHelp.textContent=added
+      ?'تمت إضافة '+added+' ملف. يمكنك إضافة ملفات أخرى أو تعديل إعدادات كل ملف على حدة.'
+      :'لم تتم إضافة ملفات جديدة.';
+    for(const item of items.filter(value=>value.pageStatus==='reading'&&!value.pageCount)){
+      try{
+        item.pageCount=await readPdfPageCount(item.file);
+        item.pageStatus='ready';
+      }catch(error){
+        item.pageStatus='error';
+        item.pageError=error.message||'تعذرت قراءة ملف PDF.';
+      }
+      renderFiles();
+    }
+  });
+
+  filesHost.addEventListener('change',event=>{
+    const control=event.target.closest('[data-field]');
+    if(!control)return;
+    const card=control.closest('[data-item-id]');
+    const item=items.find(value=>value.id===card?.dataset.itemId);
+    if(!item)return;
+    const field=control.dataset.field;
+    item[field]=field==='copies'?control.value:control.value;
+    if(field==='service'&&(item.service==='شهادات'||item.service==='صور شخصية')){
+      item.paper='ورق جلوسي';
+      const paperSelect=card.querySelector('[data-field="paper"]');
+      if(paperSelect)paperSelect.value='ورق جلوسي';
+    }
+    if(field==='paper'&&(item.service==='شهادات'||item.service==='صور شخصية')&&item.paper!=='ورق جلوسي'){
+      item.paper='ورق جلوسي';
+      control.value='ورق جلوسي';
+    }
+    renderEstimate();
+  });
+  filesHost.addEventListener('input',event=>{
+    const control=event.target.closest('[data-field]');
+    if(!control)return;
+    const card=control.closest('[data-item-id]');
+    const item=items.find(value=>value.id===card?.dataset.itemId);
+    if(!item)return;
+    item[control.dataset.field]=control.value;
+    renderEstimate();
+  });
+  filesHost.addEventListener('click',event=>{
+    const button=event.target.closest('[data-remove-item]');
+    if(!button)return;
+    const index=items.findIndex(item=>item.id===button.dataset.removeItem);
+    if(index>=0)items.splice(index,1);
+    renderFiles();
+    fileHelp.textContent=items.length?'يمكنك متابعة تعديل الملفات أو إضافة ملفات أخرى.':'تم حذف كل الملفات من الطلب.';
   });
 
   form.addEventListener('submit',async event=>{
     event.preventDefault();
     notice.textContent='';
-    const file=fileInput.files[0];
-    if(!file){notice.textContent='من فضلك ارفع ملف الطباعة.';return;}
-    if(file.type==='application/pdf'&&isStandardPrintService()&&!selectedPdfPages){
-      notice.textContent='تعذر قراءة عدد صفحات ملف PDF. ارفع ملف PDF سليم وغير محمي بكلمة مرور.';
-      return;
+    if(!items.length){notice.textContent='أضف ملفًا واحدًا على الأقل قبل إرسال الطلب.';return;}
+    if(items.length>MAX_FILES){notice.textContent='الحد الأقصى '+MAX_FILES+' ملفًا في الطلب الواحد.';return;}
+    for(let index=0;index<items.length;index++){
+      const item=items[index];
+      const copies=Number(item.copies);
+      if(!SERVICES.includes(item.service)||!PAPERS.includes(item.paper)||!SIZES.includes(item.size)||!FINISHES.includes(item.finish)){
+        notice.textContent='راجع اختيارات الملف رقم '+(index+1)+'.';
+        return;
+      }
+      if(!Number.isInteger(copies)||copies<1||copies>500){
+        notice.textContent='عدد النسخ للملف رقم '+(index+1)+' يجب أن يكون من ١ إلى ٥٠٠.';
+        return;
+      }
+      if((item.service==='شهادات'||item.service==='صور شخصية')&&item.paper!=='ورق جلوسي'){
+        notice.textContent='الشهادات والصور الشخصية تتطلب ورق جلوسي.';
+        return;
+      }
+      if(item.fileType==='application/pdf'&&isStandardService(item.service)&&!item.pageCount){
+        notice.textContent='انتظر حتى يكتمل حساب صفحات الملف رقم '+(index+1)+' أو أعد رفعه إذا تعذرت قراءته.';
+        return;
+      }
+      if(!allowedTypes.includes(item.fileType)||item.file.size>MAX_FILE){
+        notice.textContent='راجع نوع أو حجم الملف رقم '+(index+1)+'.';
+        return;
+      }
     }
-    if(file.size>MAX_FILE){notice.textContent='حجم الملف يتجاوز الحد التقني الأقصى للتخزين (5 تيرابايت).';return;}
-    if(!['application/pdf','image/jpeg','image/png'].includes(file.type)){notice.textContent='نوع الملف غير مدعوم. ارفع PDF أو JPG أو PNG.';return;}
     submit.disabled=true;
-    submit.textContent='جارٍ رفع الملف...';
-    fileHelp.textContent='جارٍ تجهيز رفع الملف بأمان...';
+    submit.textContent='جارٍ تجهيز الطلب...';
+    const uploadedItems=[];
     try{
-      const pathname='orders/'+crypto.randomUUID()+'/'+file.name.replace(/[\\/]/g,'_');
-      const blob=await upload(pathname,file,{
-        access:'private',
-        handleUploadUrl:'/api/uploads',
-        multipart:true,
-        clientPayload:JSON.stringify({contentType:file.type,size:file.size}),
-        onUploadProgress(progress){
-          const percent=Math.round(progress.percentage);
-          fileHelp.textContent='جارٍ رفع الملف: '+percent+'%';
-          submit.textContent='رفع الملف '+percent+'%';
-        }
-      });
-      fileHelp.textContent='اكتمل رفع الملف. جارٍ تسجيل الطلب...';
+      for(let index=0;index<items.length;index++){
+        const item=items[index];
+        item.uploadStatus='جارٍ الرفع...';
+        const card=filesHost.querySelector('[data-item-id="'+item.id+'"]');
+        const status=card?.querySelector('.file-upload-status');
+        if(status)status.textContent='جارٍ رفع الملف '+(index+1)+' من '+items.length+'...';
+        const uploadFile=item.file.type===item.fileType?item.file:new File([item.file],item.file.name,{type:item.fileType});
+        const pathname='orders/'+crypto.randomUUID()+'/'+item.file.name.replace(/[\\/]/g,'_');
+        const blob=await upload(pathname,uploadFile,{
+          access:'private',
+          handleUploadUrl:'/api/uploads',
+          multipart:true,
+          clientPayload:JSON.stringify({contentType:item.fileType,size:item.file.size}),
+          onUploadProgress(progress){
+            const percent=Math.round(progress.percentage);
+            fileHelp.textContent='رفع الملف '+(index+1)+' من '+items.length+': '+percent+'%';
+            submit.textContent='رفع '+(index+1)+'/'+items.length+' — '+percent+'%';
+            if(status)status.textContent='جارٍ الرفع: '+percent+'%';
+          }
+        });
+        item.uploadStatus='اكتمل الرفع';
+        if(status)status.textContent='اكتمل الرفع';
+        uploadedItems.push({
+          service:item.service,
+          paper:item.paper,
+          size:item.size,
+          finish:item.finish,
+          copies:Number(item.copies),
+          notes:item.notes,
+          pageCount:item.pageCount,
+          file:{pathname:blob.pathname,name:item.file.name,type:item.fileType,size:item.file.size}
+        });
+      }
+      fileHelp.textContent='اكتمل رفع كل الملفات. جارٍ تسجيل الطلب...';
       submit.textContent='جارٍ تسجيل الطلب...';
       const data=new FormData(form);
       const response=await fetch('/api/orders',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          customer:data.get('customer'),phone:data.get('phone'),service:data.get('service'),
-          paper:data.get('paper'),size:data.get('size'),finish:data.get('finish'),
-          copies:data.get('copies'),notes:data.get('notes'),
-          pageCount:file.type==='application/pdf'?selectedPdfPages:null,
-          file:{pathname:blob.pathname,name:file.name,type:file.type,size:file.size}
+          customer:data.get('customer'),
+          phone:data.get('phone'),
+          notes:data.get('notes'),
+          items:uploadedItems
         })
       });
       const result=await response.json();
-      if(!response.ok) throw new Error(result.error||'تعذر إرسال الطلب');
+      if(!response.ok)throw new Error(result.error||'تعذر إرسال الطلب');
       notice.replaceChildren();
       const heading=document.createElement('strong');
       heading.textContent='تم استلام طلبك بنجاح.';
@@ -231,20 +383,25 @@ if(form){
       code.className='tracking-code';
       code.textContent='رقم طلبك: '+result.order.order_code;
       const help=document.createElement('p');
-      help.textContent='احتفظ برقم الطلب واستخدمه لمتابعة حالة الطباعة.';
+      help.textContent='تم استلام '+items.length+' ملفًا. احتفظ برقم الطلب لمتابعة كل الملفات.';
+      const total=document.createElement('p');
+      total.className='order-confirmation-total';
+      total.textContent=result.order.quoted_price!=null
+        ?'الإجمالي التقديري لكل الملفات: '+formatMoney(Number(result.order.quoted_price))
+        :'بعض الملفات تحتاج تسعيرًا يدويًا؛ ستراجع المطبعة الطلب كاملًا وتؤكد الإجمالي.';
       const link=document.createElement('a');
       link.className='btn';
       link.href=result.trackingUrl;
       link.textContent='تابع حالة طلبك ←';
-      notice.append(heading,code,help,link);
+      notice.append(heading,code,help,total,link);
       form.reset();
-      selectedPdfPages=null;
+      items.splice(0,items.length);
       syncServices();
-      updatePriceEstimate();
-      fileHelp.textContent='الملفات المسموحة PDF وJPG وPNG. ارفع ملفات الطباعة مباشرة وبالحجم الأصلي.';
+      renderFiles();
+      fileHelp.textContent='يمكنك اختيار عدة ملفات PDF مرة واحدة، أو الضغط مجددًا لإضافة ملفات أخرى. الحد الأقصى ٢٠ ملفًا للطلب.';
     }catch(error){
       notice.textContent=error.message||'حدث خطأ. حاول مرة أخرى.';
-      fileHelp.textContent='لم يكتمل رفع الملف. حاول مرة أخرى أو تواصل معنا عبر واتساب.';
+      fileHelp.textContent='لم يكتمل إرسال الطلب. الملفات التي اكتمل رفعها ستظل محفوظة مؤقتًا؛ حاول مرة أخرى.';
     }finally{
       submit.disabled=false;
       submit.innerHTML='إرسال الطلب <span aria-hidden="true">←</span>';
@@ -253,4 +410,5 @@ if(form){
   const year=document.getElementById('year');
   if(year)year.textContent=new Date().getFullYear();
   syncServices();
+  renderFiles();
 }
