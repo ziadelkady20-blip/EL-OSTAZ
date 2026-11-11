@@ -58,14 +58,23 @@ export default async function handler(req, res) {
 
     const blob = await head(body.file?.pathname, { access: 'private' });
     const file = validateUploadedFile(body.file, blob);
+    const isStandardPrint = SERVICES.slice(0, 4).includes(service);
+    const pageCount = file.type === 'application/pdf' ? Number.parseInt(body.pageCount, 10) : null;
+    if (file.type === 'application/pdf' && isStandardPrint && (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 10000)) {
+      throw new Error('تعذر تحديد عدد صفحات ملف PDF. ارفع ملفًا سليمًا وغير محمي بكلمة مرور');
+    }
+    const duplex = service.includes('وجهين');
+    const sheetsPerCopy = pageCount && isStandardPrint ? (duplex ? Math.ceil(pageCount / 2) : pageCount) : null;
+    const estimatedPrice = sheetsPerCopy === null ? null : Number((sheetsPerCopy * copies * 0.75).toFixed(2));
+    const storedPageCount = pageCount && pageCount > 0 ? pageCount : 1;
     const code = newOrderCode();
     const originalName = safeText(body.file.name, 160).replace(/[\\/]/g, '_') || 'print-file';
     try {
       const history = JSON.stringify([{ status: 'new', at: new Date().toISOString(), message: 'تم استلام طلبك بنجاح' }]);
       const rows = await sql`INSERT INTO public.print_orders
-        (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_path, file_type, file_size, status, status_history, created_at, updated_at)
-        VALUES (${code}, ${customer}, ${phone}, ${service}, ${paper}, ${size}, ${finish}, ${copies}, 1, ${notes || null}, ${originalName}, ${file.pathname}, ${file.type}, ${file.size}, 'new', ${history}::jsonb, NOW(), NOW())
-        RETURNING id, order_code, status, created_at`;
+        (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, quoted_price, notes, file_name, file_path, file_type, file_size, status, status_history, created_at, updated_at)
+        VALUES (${code}, ${customer}, ${phone}, ${service}, ${paper}, ${size}, ${finish}, ${copies}, ${storedPageCount}, ${estimatedPrice}, ${notes || null}, ${originalName}, ${file.pathname}, ${file.type}, ${file.size}, 'new', ${history}::jsonb, NOW(), NOW())
+        RETURNING id, order_code, status, page_count, quoted_price, created_at`;
       const savedOrder = {
         ...rows[0],
         customer_name: customer,
@@ -75,6 +84,8 @@ export default async function handler(req, res) {
         paper_size: size,
         finishing: finish,
         copies,
+        page_count: storedPageCount,
+        quoted_price: estimatedPrice,
         notes,
         file_name: originalName,
       };
