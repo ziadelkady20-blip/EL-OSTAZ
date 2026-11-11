@@ -126,9 +126,8 @@
           <label>رقم الهاتف
             <input name="phone" type="tel" autocomplete="tel" required inputmode="tel" placeholder="01xxxxxxxxx">
           </label>
-          <label class="wide">نوع الخدمة
+          <label class="wide">الخدمة الافتراضية للملفات الجديدة
             <select name="service" id="service" required>
-              <option value="">اختر الخدمة</option>
               <option>طباعة وجه واحد (ألوان)</option>
               <option>طباعة وجهين (ألوان)</option>
               <option>طباعة وجه واحد (أبيض وأسود)</option>
@@ -136,41 +135,23 @@
               <option>شهادات</option>
               <option>صور شخصية</option>
             </select>
+            <small class="field-note">هذا اختيار مبدئي فقط؛ يمكنك تحديد خدمة مختلفة لكل ملف بعد إضافته.</small>
           </label>
-          <label>نوع الورق
-            <select name="paper" id="paper">
-              <option>ورق عادي</option>
-              <option>ورق جلوسي</option>
-            </select>
+          <label class="wide">إضافة ملفات الطباعة
+            <input name="file" id="filesInput" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple aria-describedby="fileHelp">
+            <small id="fileHelp" class="field-note">يمكنك اختيار عدة ملفات PDF مرة واحدة، أو الضغط مجددًا لإضافة ملفات أخرى. الحد الأقصى ٢٠ ملفًا للطلب.</small>
           </label>
-          <label>المقاس
-            <select name="size">
-              <option>A4 (20 × 30)</option>
-              <option>A3 (30 × 40)</option>
-            </select>
-          </label>
-          <label>التقفيل
-            <select name="finish">
-              <option>بدون</option>
-              <option>تكعيب</option>
-              <option>دبوس</option>
-            </select>
-          </label>
-          <label>عدد النسخ
-            <input name="copies" type="number" min="1" value="1" required>
-          </label>
-          <label class="wide">ملف الطباعة
-            <input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required aria-describedby="fileHelp">
-            <small id="fileHelp" class="field-note">الملفات المسموحة PDF وJPG وPNG. الرفع مباشر إلى التخزين، مع دعم الملفات الكبيرة والرفع المجزأ.</small>
-          </label>
-          <div class="price-estimate wide" id="priceEstimate" hidden aria-live="polite">
-            <div class="price-estimate-head"><span>🧾</span><div><b>حساب تكلفة الطباعة</b><small id="priceEstimateHint">سيظهر الحساب بعد قراءة ملف PDF.</small></div></div>
-            <div class="price-estimate-lines" id="priceEstimateLines"></div>
-            <div class="price-estimate-total"><span>الإجمالي المبدئي</span><strong id="priceEstimateTotal">—</strong></div>
-            <small class="price-estimate-note">السعر تقديري قبل مراجعة المطبعة وتأكيد الطلب.</small>
+          <div class="wide" id="filesContainer" aria-live="polite">
+            <div class="files-empty">لم تتم إضافة ملفات بعد. اختر ملفاتك لتحديد إعدادات كل ملف.</div>
           </div>
-          <label class="wide">ملاحظات إضافية
-            <textarea name="notes" rows="3" placeholder="اكتب أي تفاصيل إضافية تحتاج المطبعة تعرفها"></textarea>
+          <div class="price-estimate wide" id="priceEstimate" hidden aria-live="polite">
+            <div class="price-estimate-head"><span>🧾</span><div><b>الحساب التفصيلي للطلب</b><small id="priceEstimateHint">سيظهر الحساب بعد قراءة ملفات PDF.</small></div></div>
+            <div class="price-estimate-lines" id="priceEstimateLines"></div>
+            <div class="price-estimate-total"><span id="priceEstimateTotalLabel">الإجمالي المبدئي</span><strong id="priceEstimateTotal">—</strong></div>
+            <small class="price-estimate-note" id="priceEstimateNote">سعر الورقة ٧٥ قرشًا. السعر النهائي يخضع لمراجعة المطبعة.</small>
+          </div>
+          <label class="wide">ملاحظات عامة على الطلب
+            <textarea name="notes" rows="3" placeholder="أي تعليمات عامة تخص كل الملفات"></textarea>
           </label>
         </div>
         <div class="form-bottom">
