@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     if (!selected || !selected.file_path) return sendJson(res, 404, { error: 'الملف غير موجود' });
     const result = await get(selected.file_path, { access: 'private' });
     if (!result || result.statusCode !== 200 || !result.stream) return sendJson(res, 404, { error: 'تعذر الوصول إلى الملف' });
-    const filename = String(selected.file_name || 'print-file').replace(/[\\r\\n"]/g, '_');
+    const filename = String(selected.file_name || 'print-file').replace(/[\r\n"]/g, '_');
     res.statusCode = 200;
     res.setHeader('Content-Type', selected.file_type || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
