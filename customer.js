@@ -82,7 +82,7 @@ if(form){
   fulfillmentMethod.addEventListener('change',syncFulfillmentFields);
   const MAX_FILE=5*1024**4;
   const MAX_FILES=20;
-  const NORMAL_SHEET_PRICE=2.25;
+  const NORMAL_SHEET_PRICE=0.75;
   const GLOSSY_SHEET_PRICE=5;
   const BINDING_FEE=10;
   const SERVICES=['طباعة وجه واحد (ألوان)','طباعة وجهين (ألوان)','طباعة وجه واحد (أبيض وأسود)','طباعة وجهين (أبيض وأسود)','شهادات','صور شخصية'];

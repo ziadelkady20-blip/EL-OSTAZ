@@ -118,7 +118,7 @@ export default async function handler(req, res) {
         : 1;
       const sheetsPerCopy = isDuplex ? Math.ceil(printedSidesPerCopy / 2) : printedSidesPerCopy;
       const totalSheets = sheetsPerCopy * copies;
-      const pricePerSheet = paper === 'ورق جلوسي' ? 5 : 2.25;
+      const pricePerSheet = paper === 'ورق جلوسي' ? 5 : 0.75;
       const quotedPrice = Number((totalSheets * pricePerSheet).toFixed(2));
       const fileName = safeText(raw.file.name, 160).replace(/[\\/]/g, '_') || ('print-file-' + (index + 1));
       items.push({
