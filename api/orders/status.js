@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const note = safeText(body.note, 300);
     const price = body.quotedPrice === '' || body.quotedPrice == null ? null : Number(body.quotedPrice);
     if (!Number.isInteger(id) || id < 1 || !STATUSES.includes(status)) return sendJson(res, 400, { error: 'بيانات تحديث الطلب غير صحيحة' });
-    if (price !== null && (!Number.isFinite(price) || price < 0 || price > 100000000000)) return sendJson(res, 400, { error: 'السعر غير صحيح' });
+    if (price !== null && (!Number.isFinite(price) || price < 0 || price > 1000000000)) return sendJson(res, 400, { error: 'السعر غير صحيح' });
     const event = JSON.stringify({ status, at: new Date().toISOString(), message: note || null });
     const sql = getDb();
     const rows = await sql`UPDATE public.print_orders
