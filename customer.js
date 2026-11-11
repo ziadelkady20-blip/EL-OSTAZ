@@ -133,7 +133,7 @@ if(form){
       '</div>'+
       '<label class="file-item-notes">ملاحظات تخص هذا الملف<textarea data-field="notes" rows="2" placeholder="مثال: الطباعة من صفحة ١ إلى ١٠ فقط">'+esc(item.notes||'')+'</textarea></label>'+
       '<div class="file-item-price" aria-live="polite">'+esc(cardPriceText(item))+'</div>'+
-      '<small class="file-upload-status">'+esc(item.uploadStatus||'جاهز للرفع مع الطلب')}</small>'+
+      '<small class="file-upload-status">'+esc(item.uploadStatus||'جاهز للرفع مع الطلب')+'</small>'+
     '</article>';
   }
   function renderFiles(){
