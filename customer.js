@@ -217,9 +217,10 @@ if(form){
     fileInput.value='';
     if(!selected.length)return;
     let added=0;
+    let limitReached=false;
     for(const file of selected){
       if(items.length>=MAX_FILES){
-        fileHelp.textContent='الحد الأقصى '+MAX_FILES+' ملفًا في الطلب الواحد. احذف ملفًا إذا أردت إضافة غيره.';
+        limitReached=true;
         break;
       }
       const type=fileTypeOf(file);
@@ -244,8 +245,9 @@ if(form){
       added++;
     }
     renderFiles();
-    fileHelp.textContent=added
-      ?'تمت إضافة '+added+' ملف. يمكنك إضافة ملفات أخرى أو تعديل إعدادات كل ملف على حدة.'
+    fileHelp.textContent=limitReached
+      ?'الحد الأقصى '+MAX_FILES+' ملفًا في الطلب الواحد. أُضيفت الملفات المتاحة فقط.'
+      :added?'تمت إضافة '+added+' ملف. يمكنك إضافة ملفات أخرى أو تعديل إعدادات كل ملف على حدة.'
       :'لم تتم إضافة ملفات جديدة.';
     for(const item of items.filter(value=>value.pageStatus==='reading'&&!value.pageCount&&!value.pageReadStarted)){
       item.pageReadStarted=true;
@@ -326,7 +328,7 @@ if(form){
         return;
       }
     }
-    submit.disabled=true;
+    form.querySelectorAll('input,select,textarea,button').forEach(control=>{control.disabled=true;});
     submit.textContent='جارٍ تجهيز الطلب...';
     const uploadedItems=[];
     try{
@@ -405,7 +407,7 @@ if(form){
       notice.textContent=error.message||'حدث خطأ. حاول مرة أخرى.';
       fileHelp.textContent='لم يكتمل إرسال الطلب. الملفات التي اكتمل رفعها ستظل محفوظة مؤقتًا؛ حاول مرة أخرى.';
     }finally{
-      submit.disabled=false;
+      form.querySelectorAll('input,select,textarea,button').forEach(control=>{control.disabled=false;});
       submit.innerHTML='إرسال الطلب <span aria-hidden="true">←</span>';
     }
   });
