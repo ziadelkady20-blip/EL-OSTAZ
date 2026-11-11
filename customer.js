@@ -236,6 +236,7 @@ if(form){
         copies:1,
         pageCount:null,
         pageStatus:type==='application/pdf'?'reading':'image',
+        pageReadStarted:false,
         notes:'',
         uploadStatus:'جاهز للرفع مع الطلب'
       };
@@ -246,7 +247,8 @@ if(form){
     fileHelp.textContent=added
       ?'تمت إضافة '+added+' ملف. يمكنك إضافة ملفات أخرى أو تعديل إعدادات كل ملف على حدة.'
       :'لم تتم إضافة ملفات جديدة.';
-    for(const item of items.filter(value=>value.pageStatus==='reading'&&!value.pageCount)){
+    for(const item of items.filter(value=>value.pageStatus==='reading'&&!value.pageCount&&!value.pageReadStarted)){
+      item.pageReadStarted=true;
       try{
         item.pageCount=await readPdfPageCount(item.file);
         item.pageStatus='ready';
@@ -315,7 +317,7 @@ if(form){
         notice.textContent='الشهادات والصور الشخصية تتطلب ورق جلوسي.';
         return;
       }
-      if(item.fileType==='application/pdf'&&isStandardService(item.service)&&!item.pageCount){
+      if(item.fileType==='application/pdf'&&!item.pageCount){
         notice.textContent='انتظر حتى يكتمل حساب صفحات الملف رقم '+(index+1)+' أو أعد رفعه إذا تعذرت قراءته.';
         return;
       }
