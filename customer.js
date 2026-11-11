@@ -219,7 +219,7 @@ if(form){
       :'');
     estimateTotalLabel.textContent=allPriced?'إجمالي كل الملفات والرسوم':'الإجمالي المحسوب حاليًا';
     estimateTotal.textContent=priced.length||bindingFee?formatMoney(subtotal+bindingFee):'جارٍ الحساب';
-    estimateNote.textContent='سعر الورقة العادية ٢٫٢٥ جنيه، والجلوسي ٥ جنيه للورقة، ورسوم التكعيب ١٠ جنيه على الأوردر مرة واحدة. السعر النهائي يخضع لمراجعة المطبعة.';
+    estimateNote.textContent='سعر الورقة العادية ٠٫٧٥ جنيه (٧٥ قرش)، والجلوسي ٥ جنيه للورقة، ورسوم التكعيب ١٠ جنيه على الأوردر مرة واحدة. السعر النهائي يخضع لمراجعة المطبعة.';
     items.forEach(item=>{
       const card=filesHost.querySelector('[data-item-id="'+item.id+'"]');
       const priceHost=card?.querySelector('.file-item-price');
