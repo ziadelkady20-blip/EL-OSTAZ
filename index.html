@@ -163,6 +163,12 @@
             <input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required aria-describedby="fileHelp">
             <small id="fileHelp" class="field-note">الملفات المسموحة PDF وJPG وPNG. الرفع مباشر إلى التخزين، مع دعم الملفات الكبيرة والرفع المجزأ.</small>
           </label>
+          <div class="price-estimate wide" id="priceEstimate" hidden aria-live="polite">
+            <div class="price-estimate-head"><span>🧾</span><div><b>حساب تكلفة الطباعة</b><small id="priceEstimateHint">سيظهر الحساب بعد قراءة ملف PDF.</small></div></div>
+            <div class="price-estimate-lines" id="priceEstimateLines"></div>
+            <div class="price-estimate-total"><span>الإجمالي المبدئي</span><strong id="priceEstimateTotal">—</strong></div>
+            <small class="price-estimate-note">السعر تقديري قبل مراجعة المطبعة وتأكيد الطلب.</small>
+          </div>
           <label class="wide">ملاحظات إضافية
             <textarea name="notes" rows="3" placeholder="اكتب أي تفاصيل إضافية تحتاج المطبعة تعرفها"></textarea>
           </label>
