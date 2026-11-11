@@ -6,7 +6,7 @@ import { requireAdmin } from '../lib/auth.js';
 import { sendPrinterWhatsAppOrder } from '../lib/whatsapp.js';
 import { sendAdminPushNotification } from '../lib/push.js';
 
-const SERVICES = ['طباعة وجه واحد (ألوان)', 'طباعة وجه واحد (أبيض وأسود)', 'شهادات', 'صور شخصية'];
+const SERVICES = ['طباعة وجه واحد (ألوان)', 'طباعة وجهين (ألوان)', 'طباعة وجه واحد (أبيض وأسود)', 'طباعة وجهين (أبيض وأسود)', 'شهادات', 'صور شخصية'];
 const PAPERS = ['ورق عادي', 'ورق جلوسي'];
 const SIZES = ['A4 (20 × 30)', 'A3 (30 × 40)'];
 const FINISHES = ['بدون', 'تكعيب', 'دبوس'];
@@ -101,7 +101,14 @@ export default async function handler(req, res) {
       if (isPdf && (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 10000)) {
         throw new Error('تعذر تحديد عدد صفحات ملف PDF رقم ' + (index + 1) + '. أعد حفظه كملف PDF عادي');
       }
-      const isStandardPrint = SERVICES.slice(0, 2).includes(service);
+      const isStandardPrint = SERVICES.slice(0, 4).includes(service);
+      const isDuplex = service.includes('وجهين');
+      if (isDuplex && paper !== 'ورق عادي') {
+        throw new Error('الطباعة على الوجهين متاحة مع الورق العادي فقط');
+      }
+      if (isDuplex && !isPdf) {
+        throw new Error('الطباعة على الوجهين متاحة لملفات PDF فقط');
+      }
       const pagesPerSheet = isStandardPrint && isPdf ? Number(raw.pagesPerSheet ?? 1) : 1;
       if (isStandardPrint && isPdf && (!Number.isInteger(pagesPerSheet) || !PAGE_LAYOUTS.includes(pagesPerSheet))) {
         throw new Error('اختيار عدد الصفحات في الورقة للملف رقم ' + (index + 1) + ' غير صحيح');
@@ -109,7 +116,7 @@ export default async function handler(req, res) {
       const printedSidesPerCopy = isPdf
         ? (isStandardPrint ? Math.ceil(pageCount / pagesPerSheet) : pageCount)
         : 1;
-      const sheetsPerCopy = printedSidesPerCopy;
+      const sheetsPerCopy = isDuplex ? Math.ceil(printedSidesPerCopy / 2) : printedSidesPerCopy;
       const totalSheets = sheetsPerCopy * copies;
       const pricePerSheet = paper === 'ورق جلوسي' ? 5 : 2.25;
       const quotedPrice = Number((totalSheets * pricePerSheet).toFixed(2));

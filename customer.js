@@ -85,7 +85,7 @@ if(form){
   const NORMAL_SHEET_PRICE=2.25;
   const GLOSSY_SHEET_PRICE=5;
   const BINDING_FEE=10;
-  const SERVICES=['طباعة وجه واحد (ألوان)','طباعة وجه واحد (أبيض وأسود)','شهادات','صور شخصية'];
+  const SERVICES=['طباعة وجه واحد (ألوان)','طباعة وجهين (ألوان)','طباعة وجه واحد (أبيض وأسود)','طباعة وجهين (أبيض وأسود)','شهادات','صور شخصية'];
   const PAPERS=['ورق عادي','ورق جلوسي'];
   const SIZES=['A4 (20 × 30)','A3 (30 × 40)'];
   const FINISHES=['بدون','تكعيب','دبوس'];
@@ -99,7 +99,19 @@ if(form){
     return new Intl.NumberFormat('ar-EG',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value)+' جنيه';
   }
   function isStandardService(value){
-    return SERVICES.slice(0,2).includes(value);
+    return SERVICES.slice(0,4).includes(value);
+  }
+  function isDuplexService(value){
+    return value.includes('وجهين');
+  }
+  function oneSidedService(value){
+    return value.replace('وجهين','وجه واحد');
+  }
+  function availableServices(item){
+    return SERVICES.filter(value=>
+      (item.paper!=='ورق جلوسي'||!isDuplexService(value)) &&
+      (item.fileType==='application/pdf'||!isDuplexService(value))
+    );
   }
   function fileTypeOf(file){
     if(allowedTypes.includes(file.type))return file.type;
@@ -115,13 +127,15 @@ if(form){
     const isPdf=item.fileType==='application/pdf';
     const special=item.service==='شهادات'||item.service==='صور شخصية';
     if(isPdf&&(!Number.isInteger(Number(item.pageCount))||Number(item.pageCount)<1))return null;
+    const duplex=isDuplexService(item.service);
+    if(duplex&&(item.paper!=='ورق عادي'||!isPdf))return null;
     const pagesPerSheet=isPdf&&!special?Number(item.pagesPerSheet||1):1;
     if(isPdf&&!special&&!PAGE_LAYOUTS.includes(pagesPerSheet))return null;
-    const sheetsPerCopy=isPdf
+    const printedSidesPerCopy=isPdf
       ?(special?Number(item.pageCount):Math.ceil(Number(item.pageCount)/pagesPerSheet))
       :1;
+    const sheetsPerCopy=duplex?Math.ceil(printedSidesPerCopy/2):printedSidesPerCopy;
     if(!Number.isInteger(sheetsPerCopy)||sheetsPerCopy<1)return null;
-    const printedSidesPerCopy=sheetsPerCopy;
     const totalSheets=sheetsPerCopy*copies;
     const pricePerSheet=item.paper==='ورق جلوسي'?GLOSSY_SHEET_PRICE:NORMAL_SHEET_PRICE;
     return {
@@ -153,11 +167,11 @@ if(form){
     return '<article class="file-item-card" data-item-id="'+esc(item.id)+'">'+
       '<div class="file-item-head"><div class="file-item-title"><span class="file-item-number">'+(index+1)+'</span><div><b>'+esc(item.file.name)+'</b><small>'+esc((item.file.size/1024/1024).toFixed(2))+' MB · '+esc(pageStatus(item))+'</small></div></div><button type="button" class="file-remove" data-remove-item="'+esc(item.id)+'">حذف الملف ×</button></div>'+
       '<div class="file-item-grid">'+
-        '<label>الخدمة<select data-field="service">'+options(SERVICES,item.service)+'</select></label>'+
+        '<label>الخدمة<select data-field="service">'+options(availableServices(item),item.service)+'</select></label>'+
         '<label>نوع الورق<select data-field="paper">'+PAPERS.map(value=>'<option value="'+esc(value)+'" '+(value===item.paper?'selected':'')+' '+(special&&value==='ورق عادي'?'disabled':'')+'>'+esc(value)+'</option>').join('')+'</select></label>'+
         '<label>المقاس<select data-field="size">'+options(SIZES,item.size)+'</select></label>'+
         '<label>التقفيل<select data-field="finish">'+options(FINISHES,item.finish)+'</select></label>'+
-        '<label data-pages-per-sheet-field '+(special||item.fileType!=='application/pdf'?'hidden':'')+'>عدد الصفحات في الورقة الواحدة<select data-field="pagesPerSheet">'+PAGE_LAYOUTS.map(value=>'<option value="'+value+'" '+(value===Number(item.pagesPerSheet||1)?'selected':'')+'>'+new Intl.NumberFormat('ar-EG').format(value)+(value===1?' صفحة':' صفحات')+'</option>').join('')+'</select><small>الطباعة وجه واحد؛ اختر عدد الصفحات التي تُرتّب على وجه الورقة.</small></label>'+
+        '<label data-pages-per-sheet-field '+(special||item.fileType!=='application/pdf'?'hidden':'')+'>عدد الصفحات في الورقة الواحدة<select data-field="pagesPerSheet">'+PAGE_LAYOUTS.map(value=>'<option value="'+value+'" '+(value===Number(item.pagesPerSheet||1)?'selected':'')+'>'+new Intl.NumberFormat('ar-EG').format(value)+(value===1?' صفحة':' صفحات')+'</option>').join('')+'</select><small>في الطباعة وجهين، هذا العدد يكون على كل وجه من الورقة.</small></label>'+
         '<label>عدد النسخ<input data-field="copies" type="number" min="1" max="500" step="1" value="'+esc(item.copies)+'" required></label>'+
       '</div>'+
       '<label class="file-item-notes">ملاحظات تخص هذا الملف<textarea data-field="notes" rows="2" placeholder="مثال: الطباعة من صفحة ١ إلى ١٠ فقط">'+esc(item.notes||'')+'</textarea></label>'+
@@ -262,7 +276,7 @@ if(form){
         id:crypto.randomUUID(),
         file,
         fileType:type,
-        service:service.value||SERVICES[0],
+        service:(type!=='application/pdf'&&isDuplexService(service.value))?oneSidedService(service.value):(service.value||SERVICES[0]),
         paper:(service.value==='شهادات'||service.value==='صور شخصية')?'ورق جلوسي':'ورق عادي',
         size:SIZES[0],
         finish:FINISHES[0],
@@ -304,23 +318,25 @@ if(form){
     const field=control.dataset.field;
     item[field]=field==='copies'?control.value:control.value;
     if(field==='service'){
+      delete item.serviceBeforeGlossy;
       const special=item.service==='شهادات'||item.service==='صور شخصية';
-      const pageLayoutField=card.querySelector('[data-pages-per-sheet-field]');
-      if(pageLayoutField)pageLayoutField.hidden=special||item.fileType!=='application/pdf';
       if(special){
         item.pagesPerSheet=1;
-        const pageLayoutSelect=card.querySelector('[data-field="pagesPerSheet"]');
-        if(pageLayoutSelect)pageLayoutSelect.value='1';
         item.paper='ورق جلوسي';
-        const paperSelect=card.querySelector('[data-field="paper"]');
-        if(paperSelect)paperSelect.value='ورق جلوسي';
       }
     }
-    if(field==='paper'&&(item.service==='شهادات'||item.service==='صور شخصية')&&item.paper!=='ورق جلوسي'){
-      item.paper='ورق جلوسي';
-      control.value='ورق جلوسي';
+    if(field==='paper'){
+      if(item.paper==='ورق جلوسي'&&isDuplexService(item.service)){
+        item.serviceBeforeGlossy=item.service;
+        item.service=oneSidedService(item.service);
+      }else if(item.paper==='ورق عادي'&&item.serviceBeforeGlossy){
+        item.service=item.serviceBeforeGlossy;
+        delete item.serviceBeforeGlossy;
+      }
+      if(item.service==='شهادات'||item.service==='صور شخصية')item.paper='ورق جلوسي';
     }
-    renderEstimate();
+    if(field==='service'||field==='paper')renderFiles();
+    else renderEstimate();
   });
   filesHost.addEventListener('input',event=>{
     const control=event.target.closest('[data-field]');
