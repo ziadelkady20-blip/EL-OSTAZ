@@ -71,11 +71,23 @@ function renderOrders(){
     const history=Array.isArray(order.status_history)?order.status_history:[];
     const timeline=history.map(item=>'<li><b>'+esc(statusLabels[item.status]||item.status)+'</b><small>'+esc(dateText(item.at))+'</small>'+(item.message?'<p>'+esc(item.message)+'</p>':'')+'</li>').join('');
     const options=statusOptions.map(([value,label])=>'<option value="'+value+'" '+(order.status===value?'selected':'')+'>'+label+'</option>').join('');
+    const orderFiles=Array.isArray(order.files)&&order.files.length?order.files:[{
+      file_name:order.file_name,
+      file_type:order.file_type,
+      service_type:order.service_type,
+      paper_type:order.paper_type,
+      paper_size:order.paper_size,
+      finishing:order.finishing,
+      copies:order.copies,
+      page_count:order.page_count,
+      quoted_price:order.quoted_price
+    }];
+    const filesMarkup='<section class="admin-order-files"><div class="admin-order-files-title"><b>ملفات الطلب ('+orderFiles.length+')</b><strong>'+(order.quoted_price!=null?esc(Number(order.quoted_price).toFixed(2))+' جنيه':'الإجمالي يحتاج مراجعة')+'</strong></div>'+orderFiles.map((file,index)=>'<article class="admin-order-file"><div class="admin-order-file-head"><b>'+esc((index+1)+'. '+(file.file_name||'ملف الطباعة'))+'</b><a class="btn light file-download" href="/api/orders/file?id='+order.id+'&fileIndex='+index+'">تنزيل الملف ↓</a></div><div class="admin-order-file-grid"><div><small>الخدمة</small><b>'+esc(file.service_type||'—')+'</b></div><div><small>الورق والمقاس</small><b>'+esc((file.paper_type||'—')+' · '+(file.paper_size||'—'))+'</b></div><div><small>التقفيل والنسخ</small><b>'+esc((file.finishing||'—')+' · '+(file.copies||1)+' نسخة')+'</b></div><div><small>عدد الصفحات</small><b>'+((file.page_count)?esc(file.page_count)+' صفحة':'—')+'</b></div><div><small>عدد الأوراق المطبوعة</small><b>'+(file.total_sheets!=null?esc(file.total_sheets)+' ورقة':'—')+'</b></div><div><small>تكلفة الملف</small><b>'+(file.quoted_price!=null?esc(Number(file.quoted_price).toFixed(2))+' جنيه':'يحتاج تسعير')+'</b></div></div>'+(file.notes?'<p class="order-customer-note"><b>ملاحظات الملف:</b> '+esc(file.notes)+'</p>':'')+'</article>').join('')+'</section>';
     return '<article class="admin-order-card" data-order="'+order.id+'">'+
       '<div class="admin-order-top"><div><span class="order-code">'+esc(order.order_code)+'</span><h3>'+esc(order.customer_name)+'</h3><small>'+esc(order.phone)+' · '+esc(dateText(order.created_at))+'</small></div><span class="status-pill status-'+esc(order.status)+'">'+esc(statusLabels[order.status]||order.status)+'</span></div>'+
-      '<div class="admin-order-details"><div><small>الخدمة</small><b>'+esc(order.service_type)+'</b></div><div><small>الورق والمقاس</small><b>'+esc(order.paper_type)+' · '+esc(order.paper_size)+'</b></div><div><small>النسخ والتقفيل</small><b>'+esc(order.copies)+' نسخة · '+esc(order.finishing)+'</b></div><div><small>صفحات الملف</small><b>'+((order.file_type==='application/pdf'&&order.page_count)?esc(order.page_count)+' صفحة':'—')+'</b></div><div><small>الحساب المبدئي</small><b>'+(order.quoted_price!=null?esc(Number(order.quoted_price).toFixed(2))+' جنيه':'يحتاج تسعير')+'</b></div><div><small>ملف الطباعة</small><b>'+esc(order.file_name||'لا يوجد ملف')+'</b></div></div>'+
-      (order.notes?'<p class="order-customer-note"><b>ملاحظات العميل:</b> '+esc(order.notes)+'</p>':'')+
-      '<div class="admin-order-controls"><label>تحديث الحالة<select class="next-status">'+options+'</select></label><label>السعر (جنيه)<input class="quoted-price" type="number" min="0" step="0.01" value="'+(order.quoted_price??'')+'" placeholder="اختياري"></label><label class="customer-message">رسالة تظهر للعميل<input class="status-note" maxlength="300" placeholder="مثال: طلبك جاهز للاستلام"></label><button class="btn save-status" type="button">حفظ التحديث</button>'+(order.file_name?'<a class="btn light file-download" href="/api/orders/file?id='+order.id+'">تنزيل الملف ↓</a>':'')+'</div>'+
+      filesMarkup+
+      (order.notes?'<p class="order-customer-note"><b>ملاحظات عامة:</b> '+esc(order.notes)+'</p>':'')+
+      '<div class="admin-order-controls"><label>تحديث الحالة<select class="next-status">'+options+'</select></label><label>السعر النهائي للطلب (جنيه)<input class="quoted-price" type="number" min="0" step="0.01" value="'+(order.quoted_price??'')+'" placeholder="اكتب الإجمالي بعد المراجعة"></label><label class="customer-message">رسالة تظهر للعميل<input class="status-note" maxlength="300" placeholder="مثال: طلبك جاهز للاستلام"></label><button class="btn save-status" type="button">حفظ التحديث</button></div>'+
       '<details class="order-history"><summary>سجل تغييرات الحالة ('+history.length+')</summary><ol>'+timeline+'</ol></details>'+
       '</article>';
   }).join('');
