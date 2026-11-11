@@ -111,7 +111,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('orders api error', error);
     const message = error?.message || '';
-    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات الطلب|عدد النسخ|تتطلب ورق/i.test(message) ? 400 : 500;
+    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات الطلب|عدد النسخ|تتطلب ورق|صفحات/i.test(message) ? 400 : 500;
     return sendJson(res, status, { error: status === 400 ? message : 'حدث خطأ أثناء حفظ الطلب. حاول مرة أخرى.' });
   }
 }
