@@ -3,7 +3,7 @@ const dashboard=document.getElementById('dashboardView');
 const loginForm=document.getElementById('loginForm');
 const loginError=document.getElementById('loginError');
 const ordersHost=document.getElementById('orders');
-const statusLabels={new:'جديد',confirmed:'تم التأكيد',printing:'قيد الطباعة',ready:'جاهز للاستلام',delivered:'تم التسليم',cancelled:'ملغي'};
+const statusLabels={new:'جديد',confirmed:'تم التأكيد',printing:'قيد الطباعة',ready:'جاهز للتسليم',delivered:'تم التسليم',cancelled:'ملغي'};
 const statusOptions=Object.entries(statusLabels);
 let allOrders=[];
 
@@ -63,7 +63,7 @@ function renderOrders(){
   const status=document.getElementById('statusFilter').value;
   const visible=allOrders.filter(o=>{
     const matchesStatus=!status||o.status===status;
-    const haystack=[o.order_code,o.customer_name,o.phone].join(' ').toLowerCase();
+    const haystack=[o.order_code,o.customer_name,o.phone,o.delivery_address].join(' ').toLowerCase();
     return matchesStatus&&haystack.includes(query);
   });
   if(!visible.length){ordersHost.innerHTML='<div class="empty">لا توجد طلبات مطابقة للبحث الحالي.</div>';return;}
@@ -82,9 +82,11 @@ function renderOrders(){
       page_count:order.page_count,
       quoted_price:order.quoted_price
     }];
+    const fulfillmentMarkup='<p class="order-customer-note"><b>طريقة الاستلام:</b> '+(order.fulfillment_method==='delivery'?'توصيل للعنوان':'استلام من الفرع')+(order.fulfillment_method==='delivery'?'<br><b>عنوان التوصيل:</b> '+esc(order.delivery_address||'—'):'')+'</p>';
     const filesMarkup='<section class="admin-order-files"><div class="admin-order-files-title"><b>ملفات الطلب ('+orderFiles.length+')</b><strong>'+(order.quoted_price!=null?esc(Number(order.quoted_price).toFixed(2))+' جنيه':'الإجمالي يحتاج مراجعة')+'</strong></div>'+orderFiles.map((file,index)=>'<article class="admin-order-file"><div class="admin-order-file-head"><b>'+esc((index+1)+'. '+(file.file_name||'ملف الطباعة'))+'</b><a class="btn light file-download" href="/api/orders/file?id='+order.id+'&fileIndex='+index+'">تنزيل الملف ↓</a></div><div class="admin-order-file-grid"><div><small>الخدمة</small><b>'+esc(file.service_type||'—')+'</b></div><div><small>الورق والمقاس</small><b>'+esc((file.paper_type||'—')+' · '+(file.paper_size||'—'))+'</b></div><div><small>التقفيل والنسخ</small><b>'+esc((file.finishing||'—')+' · '+(file.copies||1)+' نسخة')+'</b></div><div><small>عدد الصفحات</small><b>'+((file.page_count)?esc(file.page_count)+' صفحة':'—')+'</b></div><div><small>عدد الأوراق المطبوعة</small><b>'+(file.total_sheets!=null?esc(file.total_sheets)+' ورقة':'—')+'</b></div><div><small>تكلفة الملف</small><b>'+(file.quoted_price!=null?esc(Number(file.quoted_price).toFixed(2))+' جنيه':'يحتاج تسعير')+'</b></div></div>'+(file.notes?'<p class="order-customer-note"><b>ملاحظات الملف:</b> '+esc(file.notes)+'</p>':'')+'</article>').join('')+'</section>';
     return '<article class="admin-order-card" data-order="'+order.id+'">'+
       '<div class="admin-order-top"><div><span class="order-code">'+esc(order.order_code)+'</span><h3>'+esc(order.customer_name)+'</h3><small>'+esc(order.phone)+' · '+esc(dateText(order.created_at))+'</small></div><span class="status-pill status-'+esc(order.status)+'">'+esc(statusLabels[order.status]||order.status)+'</span></div>'+
+      fulfillmentMarkup+
       filesMarkup+
       (order.notes?'<p class="order-customer-note"><b>ملاحظات عامة:</b> '+esc(order.notes)+'</p>':'')+
       '<div class="admin-order-controls"><label>تحديث الحالة<select class="next-status">'+options+'</select></label><label>السعر النهائي للطلب (جنيه)<input class="quoted-price" type="number" min="0" step="0.01" value="'+(order.quoted_price??'')+'" placeholder="اكتب الإجمالي بعد المراجعة"></label><label class="customer-message">رسالة تظهر للعميل<input class="status-note" maxlength="300" placeholder="مثال: طلبك جاهز للاستلام"></label><button class="btn save-status" type="button">حفظ التحديث</button></div>'+

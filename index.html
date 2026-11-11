@@ -150,6 +150,18 @@
             <div class="price-estimate-total"><span id="priceEstimateTotalLabel">الإجمالي المبدئي</span><strong id="priceEstimateTotal">—</strong></div>
             <small class="price-estimate-note" id="priceEstimateNote">سعر الورقة ٧٥ قرشًا. السعر النهائي يخضع لمراجعة المطبعة.</small>
           </div>
+          <label class="wide">طريقة الاستلام
+            <select name="fulfillmentMethod" id="fulfillmentMethod" required>
+              <option value="pickup">استلام من الفرع</option>
+              <option value="delivery">توصيل للعنوان</option>
+            </select>
+          </label>
+          <div class="wide" id="deliveryAddressField" hidden>
+            <label>عنوان التوصيل بالتفصيل
+              <textarea name="deliveryAddress" id="deliveryAddress" rows="3" maxlength="700" placeholder="المحافظة، المدينة، الشارع، رقم العقار، الدور، علامة مميزة"></textarea>
+              <small class="field-note">اكتب العنوان كاملًا مع أقرب علامة مميزة لتسهيل الوصول إليك.</small>
+            </label>
+          </div>
           <label class="wide">ملاحظات عامة على الطلب
             <textarea name="notes" rows="3" placeholder="أي تعليمات عامة تخص كل الملفات"></textarea>
           </label>

@@ -97,6 +97,7 @@ button,a{-webkit-tap-highlight-color:transparent}
 .fields small{color:var(--muted);font-size:11px;font-weight:500;line-height:1.8}
 .field-note{font-weight:600!important}
 .wide{grid-column:1/-1}
+.fields [hidden]{display:none!important}
 .form-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--line);gap:15px}
 .form-bottom p{font-size:12px;color:var(--muted);margin:0;line-height:1.9}
 #notice{margin-top:15px;padding:0;color:var(--success);font-weight:800;font-size:13px}
