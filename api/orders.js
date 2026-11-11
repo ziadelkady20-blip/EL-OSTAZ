@@ -6,7 +6,7 @@ import { requireAdmin } from '../lib/auth.js';
 import { sendPrinterWhatsAppOrder } from '../lib/whatsapp.js';
 import { sendAdminPushNotification } from '../lib/push.js';
 
-const SERVICES = ['طباعة وجه واحد (ألوان)', 'طباعة وجهين (ألوان)', 'طباعة وجه واحد (أبيض وأسود)', 'طباعة وجهين (أبيض وأسود)', 'شهادات', 'صور شخصية'];
+const SERVICES = ['طباعة وجه واحد (ألوان)', 'طباعة وجه واحد (أبيض وأسود)', 'شهادات', 'صور شخصية'];
 const PAPERS = ['ورق عادي', 'ورق جلوسي'];
 const SIZES = ['A4 (20 × 30)', 'A3 (30 × 40)'];
 const FINISHES = ['بدون', 'تكعيب', 'دبوس'];
@@ -101,19 +101,18 @@ export default async function handler(req, res) {
       if (isPdf && (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 10000)) {
         throw new Error('تعذر تحديد عدد صفحات ملف PDF رقم ' + (index + 1) + '. أعد حفظه كملف PDF عادي');
       }
-      const isStandardPrint = SERVICES.slice(0, 4).includes(service);
-      const pagesPerSheet = isStandardPrint ? Number(raw.pagesPerSheet ?? 1) : 1;
-      if (isStandardPrint && (!Number.isInteger(pagesPerSheet) || !PAGE_LAYOUTS.includes(pagesPerSheet))) {
+      const isStandardPrint = SERVICES.slice(0, 2).includes(service);
+      const pagesPerSheet = isStandardPrint && isPdf ? Number(raw.pagesPerSheet ?? 1) : 1;
+      if (isStandardPrint && isPdf && (!Number.isInteger(pagesPerSheet) || !PAGE_LAYOUTS.includes(pagesPerSheet))) {
         throw new Error('اختيار عدد الصفحات في الورقة للملف رقم ' + (index + 1) + ' غير صحيح');
       }
-      const printedSidesPerCopy = isPdf && isStandardPrint
-        ? Math.ceil(pageCount / pagesPerSheet)
-        : null;
-      const sheetsPerCopy = printedSidesPerCopy === null
-        ? null
-        : service.includes('وجهين') ? Math.ceil(printedSidesPerCopy / 2) : printedSidesPerCopy;
-      const totalSheets = sheetsPerCopy === null ? null : sheetsPerCopy * copies;
-      const quotedPrice = totalSheets === null ? null : Number((totalSheets * 0.75).toFixed(2));
+      const printedSidesPerCopy = isPdf
+        ? (isStandardPrint ? Math.ceil(pageCount / pagesPerSheet) : pageCount)
+        : 1;
+      const sheetsPerCopy = printedSidesPerCopy;
+      const totalSheets = sheetsPerCopy * copies;
+      const pricePerSheet = paper === 'ورق جلوسي' ? 5 : 2.25;
+      const quotedPrice = Number((totalSheets * pricePerSheet).toFixed(2));
       const fileName = safeText(raw.file.name, 160).replace(/[\\/]/g, '_') || ('print-file-' + (index + 1));
       items.push({
         file_name: fileName,
@@ -130,6 +129,7 @@ export default async function handler(req, res) {
         printed_sides_per_copy: printedSidesPerCopy,
         sheets_per_copy: sheetsPerCopy,
         total_sheets: totalSheets,
+        price_per_sheet: pricePerSheet,
         quoted_price: quotedPrice,
         notes: itemNotes,
       });
@@ -137,9 +137,11 @@ export default async function handler(req, res) {
 
     const code = newOrderCode();
     const first = items[0];
+    const bindingFee = items.some(item => item.finishing === 'تكعيب') ? 10 : 0;
+    if (items.length) items[0].order_binding_fee = bindingFee;
     const allPriced = items.every(item => item.quoted_price !== null);
     const totalPrice = allPriced
-      ? Number(items.reduce((sum, item) => sum + item.quoted_price, 0).toFixed(2))
+      ? Number((items.reduce((sum, item) => sum + item.quoted_price, 0) + bindingFee).toFixed(2))
       : null;
     const totalPages = items.reduce((sum, item) => sum + (item.page_count || 0), 0);
     const totalCopies = items.reduce((sum, item) => sum + item.copies, 0);
@@ -173,6 +175,7 @@ export default async function handler(req, res) {
       file_name: first.file_name,
       files: items,
       file_count: items.length,
+      binding_fee: bindingFee,
     };
 
     let push = { sent: 0, configured: false };
@@ -207,12 +210,14 @@ export default async function handler(req, res) {
       printed_sides_per_copy: item.printed_sides_per_copy,
       sheets_per_copy: item.sheets_per_copy,
       total_sheets: item.total_sheets,
+      price_per_sheet: item.price_per_sheet,
       quoted_price: item.quoted_price,
+      order_binding_fee: item.order_binding_fee || 0,
       notes: item.notes,
     }));
     return sendJson(res, 201, {
       ok: true,
-      order: { ...rows[0], file_count: items.length, files: publicFiles },
+      order: { ...rows[0], file_count: items.length, files: publicFiles, binding_fee: bindingFee },
       trackingUrl: '/track.html?code=' + code,
       whatsapp,
       push,

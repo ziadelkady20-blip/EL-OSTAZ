@@ -23,6 +23,8 @@ export default async function handler(req, res) {
           printed_sides_per_copy: file.printed_sides_per_copy,
           sheets_per_copy: file.sheets_per_copy,
           total_sheets: file.total_sheets,
+          price_per_sheet: file.price_per_sheet,
+          order_binding_fee: file.order_binding_fee || 0,
           quoted_price: file.quoted_price,
           notes: file.notes,
         }))
@@ -42,6 +44,7 @@ export default async function handler(req, res) {
         page_count: order.page_count,
         copies: order.copies,
         quoted_price: order.quoted_price,
+        binding_fee: Number(files[0]?.order_binding_fee || 0),
         fulfillment_method: order.fulfillment_method || 'pickup',
         files,
         created_at: order.created_at,

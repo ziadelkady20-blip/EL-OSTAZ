@@ -82,8 +82,10 @@ if(form){
   fulfillmentMethod.addEventListener('change',syncFulfillmentFields);
   const MAX_FILE=5*1024**4;
   const MAX_FILES=20;
-  const PAGE_PRICE=0.75;
-  const SERVICES=['طباعة وجه واحد (ألوان)','طباعة وجهين (ألوان)','طباعة وجه واحد (أبيض وأسود)','طباعة وجهين (أبيض وأسود)','شهادات','صور شخصية'];
+  const NORMAL_SHEET_PRICE=2.25;
+  const GLOSSY_SHEET_PRICE=5;
+  const BINDING_FEE=10;
+  const SERVICES=['طباعة وجه واحد (ألوان)','طباعة وجه واحد (أبيض وأسود)','شهادات','صور شخصية'];
   const PAPERS=['ورق عادي','ورق جلوسي'];
   const SIZES=['A4 (20 × 30)','A3 (30 × 40)'];
   const FINISHES=['بدون','تكعيب','دبوس'];
@@ -97,7 +99,7 @@ if(form){
     return new Intl.NumberFormat('ar-EG',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value)+' جنيه';
   }
   function isStandardService(value){
-    return SERVICES.slice(0,4).includes(value);
+    return SERVICES.slice(0,2).includes(value);
   }
   function fileTypeOf(file){
     if(allowedTypes.includes(file.type))return file.type;
@@ -108,29 +110,41 @@ if(form){
     return '';
   }
   function getEstimate(item){
-    if(item.fileType!=='application/pdf'||!item.pageCount||!isStandardService(item.service))return null;
     const copies=Number(item.copies);
     if(!Number.isInteger(copies)||copies<1||copies>500)return null;
-    const pagesPerSheet=Number(item.pagesPerSheet||1);
-    if(!PAGE_LAYOUTS.includes(pagesPerSheet))return null;
-    const printedSidesPerCopy=Math.ceil(item.pageCount/pagesPerSheet);
-    const duplex=item.service.includes('وجهين');
-    const sheetsPerCopy=duplex?Math.ceil(printedSidesPerCopy/2):printedSidesPerCopy;
+    const isPdf=item.fileType==='application/pdf';
+    const special=item.service==='شهادات'||item.service==='صور شخصية';
+    if(isPdf&&(!Number.isInteger(Number(item.pageCount))||Number(item.pageCount)<1))return null;
+    const pagesPerSheet=isPdf&&!special?Number(item.pagesPerSheet||1):1;
+    if(isPdf&&!special&&!PAGE_LAYOUTS.includes(pagesPerSheet))return null;
+    const sheetsPerCopy=isPdf
+      ?(special?Number(item.pageCount):Math.ceil(Number(item.pageCount)/pagesPerSheet))
+      :1;
+    if(!Number.isInteger(sheetsPerCopy)||sheetsPerCopy<1)return null;
+    const printedSidesPerCopy=sheetsPerCopy;
     const totalSheets=sheetsPerCopy*copies;
-    return {pagesPerSheet,printedSidesPerCopy,sheetsPerCopy,totalSheets,price:Number((totalSheets*PAGE_PRICE).toFixed(2))};
+    const pricePerSheet=item.paper==='ورق جلوسي'?GLOSSY_SHEET_PRICE:NORMAL_SHEET_PRICE;
+    return {
+      pagesPerSheet,
+      printedSidesPerCopy,
+      sheetsPerCopy,
+      totalSheets,
+      pricePerSheet,
+      price:Number((totalSheets*pricePerSheet).toFixed(2))
+    };
   }
   function options(values,selected){
     return values.map(value=>'<option value="'+esc(value)+'" '+(value===selected?'selected':'')+'>'+esc(value)+'</option>').join('');
   }
   function pageStatus(item){
-    if(item.fileType!=='application/pdf')return 'صورة — التسعير بعد مراجعة المطبعة';
+    if(item.fileType!=='application/pdf')return 'صورة — ورقة واحدة لكل نسخة';
     if(item.pageStatus==='reading')return 'جارٍ قراءة صفحات ملف PDF...';
     if(item.pageStatus==='error')return 'تعذرت قراءة الملف؛ أعد حفظه كـ PDF عادي';
     return item.pageCount+' صفحة';
   }
   function cardPriceText(item){
     const estimate=getEstimate(item);
-    if(estimate)return 'تكلفة هذا الملف: '+formatMoney(estimate.price)+' · '+estimate.totalSheets+' ورقة';
+    if(estimate)return 'تكلفة هذا الملف: '+formatMoney(estimate.price)+' · '+estimate.totalSheets+' ورقة × '+formatMoney(estimate.pricePerSheet);
     if(item.fileType==='application/pdf'&&item.pageStatus==='reading')return 'جارٍ حساب التكلفة...';
     return 'السعر يحتاج مراجعة المطبعة';
   }
@@ -143,7 +157,7 @@ if(form){
         '<label>نوع الورق<select data-field="paper">'+PAPERS.map(value=>'<option value="'+esc(value)+'" '+(value===item.paper?'selected':'')+' '+(special&&value==='ورق عادي'?'disabled':'')+'>'+esc(value)+'</option>').join('')+'</select></label>'+
         '<label>المقاس<select data-field="size">'+options(SIZES,item.size)+'</select></label>'+
         '<label>التقفيل<select data-field="finish">'+options(FINISHES,item.finish)+'</select></label>'+
-        '<label data-pages-per-sheet-field '+(special||item.fileType!=='application/pdf'?'hidden':'')+'>عدد الصفحات في الورقة الواحدة<select data-field="pagesPerSheet">'+PAGE_LAYOUTS.map(value=>'<option value="'+value+'" '+(value===Number(item.pagesPerSheet||1)?'selected':'')+'>'+new Intl.NumberFormat('ar-EG').format(value)+(value===1?' صفحة':' صفحات')+'</option>').join('')+'</select><small>عدد الصفحات على وجه الورقة الواحد؛ الطباعة على الوجهين تُحسب تلقائيًا</small></label>'+
+        '<label data-pages-per-sheet-field '+(special||item.fileType!=='application/pdf'?'hidden':'')+'>عدد الصفحات في الورقة الواحدة<select data-field="pagesPerSheet">'+PAGE_LAYOUTS.map(value=>'<option value="'+value+'" '+(value===Number(item.pagesPerSheet||1)?'selected':'')+'>'+new Intl.NumberFormat('ar-EG').format(value)+(value===1?' صفحة':' صفحات')+'</option>').join('')+'</select><small>الطباعة وجه واحد؛ اختر عدد الصفحات التي تُرتّب على وجه الورقة.</small></label>'+
         '<label>عدد النسخ<input data-field="copies" type="number" min="1" max="500" step="1" value="'+esc(item.copies)+'" required></label>'+
       '</div>'+
       '<label class="file-item-notes">ملاحظات تخص هذا الملف<textarea data-field="notes" rows="2" placeholder="مثال: الطباعة من صفحة ١ إلى ١٠ فقط">'+esc(item.notes||'')+'</textarea></label>'+
@@ -166,9 +180,10 @@ if(form){
     const priced=estimates.filter(Boolean);
     const subtotal=priced.reduce((sum,item)=>sum+item.price,0);
     const allPriced=priced.length===items.length;
+    const bindingFee=items.some(item=>item.finish==='تكعيب')?BINDING_FEE:0;
     estimateHint.textContent=allPriced
       ?'تم حساب تكلفة كل الملفات حسب إعدادات كل ملف.'
-      :'بعض الملفات تحتاج تسعيرًا يدويًا من المطبعة؛ المعروض حاليًا هو مجموع الملفات القابلة للحساب فقط.';
+      :'جارٍ استكمال قراءة بعض الملفات؛ سيظهر الحساب الكامل بعد انتهاء القراءة.';
     estimateLines.innerHTML=items.map((item,index)=>{
       const estimate=estimates[index];
       const details=[
@@ -178,17 +193,19 @@ if(form){
         'التقفيل: '+item.finish,
         'النسخ: '+item.copies
       ].join(' · ');
-      const pageDetails=item.pageCount
-        ?'صفحات الملف: '+item.pageCount+' · صفحات في الورقة: '+(estimate?estimate.pagesPerSheet:'—')+' · الأوجه لكل نسخة: '+(estimate?estimate.printedSidesPerCopy:'—')+' · الأوراق الفعلية لكل نسخة: '+(estimate?estimate.sheetsPerCopy:'—')+' · إجمالي الأوراق: '+(estimate?estimate.totalSheets:'—')
+      const pageDetails=estimate
+        ?(item.fileType==='application/pdf'
+          ?'صفحات الملف: '+item.pageCount+' · صفحات في الورقة: '+estimate.pagesPerSheet+' · الأوراق لكل نسخة: '+estimate.sheetsPerCopy+' · إجمالي الأوراق: '+estimate.totalSheets+' · سعر الورقة: '+formatMoney(estimate.pricePerSheet)
+          :'صورة · ورقة لكل نسخة · إجمالي الأوراق: '+estimate.totalSheets+' · سعر الورقة: '+formatMoney(estimate.pricePerSheet))
         :pageStatus(item);
-      const price=estimate?formatMoney(estimate.price):(item.pageStatus==='reading'?'جارٍ الحساب':'يحتاج تسعيرًا');
+      const price=estimate?formatMoney(estimate.price):(item.pageStatus==='reading'?'جارٍ الحساب':'يحتاج مراجعة');
       return '<div class="price-estimate-file"><div class="price-estimate-file-head"><b>'+(index+1)+'. '+esc(item.file.name)+'</b><strong>'+esc(price)+'</strong></div><small>'+esc(details)+'</small><small>'+esc(pageDetails)+'</small></div>';
-    }).join('');
-    estimateTotalLabel.textContent=allPriced?'إجمالي كل الملفات':'المجموع المحسوب حاليًا';
-    estimateTotal.textContent=priced.length?formatMoney(subtotal):'بعد مراجعة المطبعة';
-    estimateNote.textContent=allPriced
-      ?'سعر الورقة ٧٥ قرشًا. هذا إجمالي تقديري قبل مراجعة المطبعة وتأكيد الطلب.'
-      :'الملفات التي يظهر أمامها «يحتاج تسعيرًا» ستضاف بعد مراجعة المطبعة؛ لا يعتبر المجموع الحالي إجماليًا نهائيًا.';
+    }).join('')+(bindingFee
+      ?'<div class="price-estimate-file"><div class="price-estimate-file-head"><b>رسوم التكعيب على الأوردر (مرة واحدة)</b><strong>'+esc(formatMoney(bindingFee))+'</strong></div></div>'
+      :'');
+    estimateTotalLabel.textContent=allPriced?'إجمالي كل الملفات والرسوم':'الإجمالي المحسوب حاليًا';
+    estimateTotal.textContent=priced.length||bindingFee?formatMoney(subtotal+bindingFee):'جارٍ الحساب';
+    estimateNote.textContent='سعر الورقة العادية ٢٫٢٥ جنيه، والجلوسي ٥ جنيه للورقة، ورسوم التكعيب ١٠ جنيه على الأوردر مرة واحدة. السعر النهائي يخضع لمراجعة المطبعة.';
     items.forEach(item=>{
       const card=filesHost.querySelector('[data-item-id="'+item.id+'"]');
       const priceHost=card?.querySelector('.file-item-price');
