@@ -87,6 +87,7 @@ if(form){
   const PAPERS=['ورق عادي','ورق جلوسي'];
   const SIZES=['A4 (20 × 30)','A3 (30 × 40)'];
   const FINISHES=['بدون','تكعيب','دبوس'];
+  const PAGE_LAYOUTS=[1,2,4,6,8,9,16];
   const allowedTypes=['application/pdf','image/jpeg','image/png'];
   const items=[];
   let pdfjsPromise=null;
@@ -110,10 +111,13 @@ if(form){
     if(item.fileType!=='application/pdf'||!item.pageCount||!isStandardService(item.service))return null;
     const copies=Number(item.copies);
     if(!Number.isInteger(copies)||copies<1||copies>500)return null;
+    const pagesPerSheet=Number(item.pagesPerSheet||1);
+    if(!PAGE_LAYOUTS.includes(pagesPerSheet))return null;
+    const printedSidesPerCopy=Math.ceil(item.pageCount/pagesPerSheet);
     const duplex=item.service.includes('وجهين');
-    const sheetsPerCopy=duplex?Math.ceil(item.pageCount/2):item.pageCount;
+    const sheetsPerCopy=duplex?Math.ceil(printedSidesPerCopy/2):printedSidesPerCopy;
     const totalSheets=sheetsPerCopy*copies;
-    return {sheetsPerCopy,totalSheets,price:Number((totalSheets*PAGE_PRICE).toFixed(2))};
+    return {pagesPerSheet,printedSidesPerCopy,sheetsPerCopy,totalSheets,price:Number((totalSheets*PAGE_PRICE).toFixed(2))};
   }
   function options(values,selected){
     return values.map(value=>'<option value="'+esc(value)+'" '+(value===selected?'selected':'')+'>'+esc(value)+'</option>').join('');
@@ -139,6 +143,7 @@ if(form){
         '<label>نوع الورق<select data-field="paper">'+PAPERS.map(value=>'<option value="'+esc(value)+'" '+(value===item.paper?'selected':'')+' '+(special&&value==='ورق عادي'?'disabled':'')+'>'+esc(value)+'</option>').join('')+'</select></label>'+
         '<label>المقاس<select data-field="size">'+options(SIZES,item.size)+'</select></label>'+
         '<label>التقفيل<select data-field="finish">'+options(FINISHES,item.finish)+'</select></label>'+
+        '<label data-pages-per-sheet-field '+(special||item.fileType!=='application/pdf'?'hidden':'')+'>عدد الصفحات في الورقة الواحدة<select data-field="pagesPerSheet">'+PAGE_LAYOUTS.map(value=>'<option value="'+value+'" '+(value===Number(item.pagesPerSheet||1)?'selected':'')+'>'+new Intl.NumberFormat('ar-EG').format(value)+(value===1?' صفحة':' صفحات')+'</option>').join('')+'</select><small>عدد الصفحات على وجه الورقة الواحد؛ الطباعة على الوجهين تُحسب تلقائيًا</small></label>'+
         '<label>عدد النسخ<input data-field="copies" type="number" min="1" max="500" step="1" value="'+esc(item.copies)+'" required></label>'+
       '</div>'+
       '<label class="file-item-notes">ملاحظات تخص هذا الملف<textarea data-field="notes" rows="2" placeholder="مثال: الطباعة من صفحة ١ إلى ١٠ فقط">'+esc(item.notes||'')+'</textarea></label>'+
@@ -174,7 +179,7 @@ if(form){
         'النسخ: '+item.copies
       ].join(' · ');
       const pageDetails=item.pageCount
-        ?'الصفحات: '+item.pageCount+' · الأوراق لكل نسخة: '+(estimate?estimate.sheetsPerCopy:'—')+' · إجمالي الأوراق: '+(estimate?estimate.totalSheets:'—')
+        ?'صفحات الملف: '+item.pageCount+' · صفحات في الورقة: '+(estimate?estimate.pagesPerSheet:'—')+' · الأوجه لكل نسخة: '+(estimate?estimate.printedSidesPerCopy:'—')+' · الأوراق الفعلية لكل نسخة: '+(estimate?estimate.sheetsPerCopy:'—')+' · إجمالي الأوراق: '+(estimate?estimate.totalSheets:'—')
         :pageStatus(item);
       const price=estimate?formatMoney(estimate.price):(item.pageStatus==='reading'?'جارٍ الحساب':'يحتاج تسعيرًا');
       return '<div class="price-estimate-file"><div class="price-estimate-file-head"><b>'+(index+1)+'. '+esc(item.file.name)+'</b><strong>'+esc(price)+'</strong></div><small>'+esc(details)+'</small><small>'+esc(pageDetails)+'</small></div>';
@@ -245,6 +250,7 @@ if(form){
         size:SIZES[0],
         finish:FINISHES[0],
         copies:1,
+        pagesPerSheet:1,
         pageCount:null,
         pageStatus:type==='application/pdf'?'reading':'image',
         pageReadStarted:false,
@@ -280,10 +286,18 @@ if(form){
     if(!item)return;
     const field=control.dataset.field;
     item[field]=field==='copies'?control.value:control.value;
-    if(field==='service'&&(item.service==='شهادات'||item.service==='صور شخصية')){
-      item.paper='ورق جلوسي';
-      const paperSelect=card.querySelector('[data-field="paper"]');
-      if(paperSelect)paperSelect.value='ورق جلوسي';
+    if(field==='service'){
+      const special=item.service==='شهادات'||item.service==='صور شخصية';
+      const pageLayoutField=card.querySelector('[data-pages-per-sheet-field]');
+      if(pageLayoutField)pageLayoutField.hidden=special||item.fileType!=='application/pdf';
+      if(special){
+        item.pagesPerSheet=1;
+        const pageLayoutSelect=card.querySelector('[data-field="pagesPerSheet"]');
+        if(pageLayoutSelect)pageLayoutSelect.value='1';
+        item.paper='ورق جلوسي';
+        const paperSelect=card.querySelector('[data-field="paper"]');
+        if(paperSelect)paperSelect.value='ورق جلوسي';
+      }
     }
     if(field==='paper'&&(item.service==='شهادات'||item.service==='صور شخصية')&&item.paper!=='ورق جلوسي'){
       item.paper='ورق جلوسي';
@@ -384,6 +398,7 @@ if(form){
           size:item.size,
           finish:item.finish,
           copies:Number(item.copies),
+          pagesPerSheet:Number(item.pagesPerSheet||1),
           notes:item.notes,
           pageCount:item.pageCount,
           file:{pathname:blob.pathname,name:item.file.name,type:item.fileType,size:item.file.size}

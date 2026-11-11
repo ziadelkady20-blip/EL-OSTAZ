@@ -10,6 +10,7 @@ const SERVICES = ['طباعة وجه واحد (ألوان)', 'طباعة وجه�
 const PAPERS = ['ورق عادي', 'ورق جلوسي'];
 const SIZES = ['A4 (20 × 30)', 'A3 (30 × 40)'];
 const FINISHES = ['بدون', 'تكعيب', 'دبوس'];
+const PAGE_LAYOUTS = [1, 2, 4, 6, 8, 9, 16];
 const MAX_FILE = 5 * 1024 ** 4;
 const MAX_FILES = 20;
 
@@ -101,9 +102,16 @@ export default async function handler(req, res) {
         throw new Error('تعذر تحديد عدد صفحات ملف PDF رقم ' + (index + 1) + '. أعد حفظه كملف PDF عادي');
       }
       const isStandardPrint = SERVICES.slice(0, 4).includes(service);
-      const sheetsPerCopy = isPdf && isStandardPrint
-        ? (service.includes('وجهين') ? Math.ceil(pageCount / 2) : pageCount)
+      const pagesPerSheet = isStandardPrint ? Number(raw.pagesPerSheet ?? 1) : 1;
+      if (isStandardPrint && (!Number.isInteger(pagesPerSheet) || !PAGE_LAYOUTS.includes(pagesPerSheet))) {
+        throw new Error('اختيار عدد الصفحات في الورقة للملف رقم ' + (index + 1) + ' غير صحيح');
+      }
+      const printedSidesPerCopy = isPdf && isStandardPrint
+        ? Math.ceil(pageCount / pagesPerSheet)
         : null;
+      const sheetsPerCopy = printedSidesPerCopy === null
+        ? null
+        : service.includes('وجهين') ? Math.ceil(printedSidesPerCopy / 2) : printedSidesPerCopy;
       const totalSheets = sheetsPerCopy === null ? null : sheetsPerCopy * copies;
       const quotedPrice = totalSheets === null ? null : Number((totalSheets * 0.75).toFixed(2));
       const fileName = safeText(raw.file.name, 160).replace(/[\\/]/g, '_') || ('print-file-' + (index + 1));
@@ -118,6 +126,8 @@ export default async function handler(req, res) {
         finishing: finish,
         copies,
         page_count: pageCount,
+        pages_per_sheet: pagesPerSheet,
+        printed_sides_per_copy: printedSidesPerCopy,
         sheets_per_copy: sheetsPerCopy,
         total_sheets: totalSheets,
         quoted_price: quotedPrice,
@@ -193,6 +203,8 @@ export default async function handler(req, res) {
       finishing: item.finishing,
       copies: item.copies,
       page_count: item.page_count,
+      pages_per_sheet: item.pages_per_sheet,
+      printed_sides_per_copy: item.printed_sides_per_copy,
       sheets_per_copy: item.sheets_per_copy,
       total_sheets: item.total_sheets,
       quoted_price: item.quoted_price,
@@ -211,7 +223,7 @@ export default async function handler(req, res) {
     }
     console.error('orders api error', error);
     const message = error?.message || '';
-    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|ملف واحد إلى ٢٠|اختر طريقة الاستلام|عنوان التوصيل/i.test(message) ? 400 : 500;
+    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|اختيار عدد الصفحات|ملف واحد إلى ٢٠|اختر طريقة الاستلام|عنوان التوصيل/i.test(message) ? 400 : 500;
     return sendJson(res, status, { error: status === 400 ? message : 'حدث خطأ أثناء حفظ الطلب. حاول مرة أخرى.' });
   }
 }
