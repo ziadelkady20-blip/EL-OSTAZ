@@ -13,6 +13,9 @@ export default async function handler(req, res) {
     const files = Array.isArray(order.files) && order.files.length
       ? order.files.map(file => ({
           file_name: file.file_name,
+          file_type: file.file_type,
+          image_count: file.image_count ?? (String(file.file_type||'').startsWith('image/') ? 1 : 0),
+          printed_image_count: file.printed_image_count ?? (String(file.file_type||'').startsWith('image/') ? (file.copies||1) : 0),
           service_type: file.service_type,
           paper_type: file.paper_type,
           paper_size: file.paper_size,
@@ -30,11 +33,16 @@ export default async function handler(req, res) {
         }))
       : [{
           file_name: 'ملف الطلب',
+          file_type: order.file_type,
+          image_count: String(order.file_type||'').startsWith('image/') ? 1 : 0,
+          printed_image_count: String(order.file_type||'').startsWith('image/') ? (order.copies||1) : 0,
           service_type: order.service_type,
           copies: order.copies,
           page_count: order.page_count,
           quoted_price: order.quoted_price,
         }];
+    const totalImages = files.reduce((sum, file) => sum + Number(file.image_count || 0), 0);
+    const totalPrintedImages = files.reduce((sum, file) => sum + Number(file.printed_image_count || 0), 0);
     return sendJson(res, 200, {
       order: {
         order_code: order.order_code,
@@ -44,6 +52,8 @@ export default async function handler(req, res) {
         page_count: order.page_count,
         copies: order.copies,
         quoted_price: order.quoted_price,
+        total_images: totalImages,
+        total_printed_images: totalPrintedImages,
         binding_fee: Number(files[0]?.order_binding_fee || 0),
         fulfillment_method: order.fulfillment_method || 'pickup',
         files,

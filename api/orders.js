@@ -118,6 +118,8 @@ export default async function handler(req, res) {
         : 1;
       const sheetsPerCopy = isDuplex ? Math.ceil(printedSidesPerCopy / 2) : printedSidesPerCopy;
       const totalSheets = sheetsPerCopy * copies;
+      const imageCount = isPdf ? 0 : 1;
+      const printedImageCount = imageCount * copies;
       const pricePerSheet = paper === 'ورق جلوسي' ? 5 : 0.75;
       const quotedPrice = Number((totalSheets * pricePerSheet).toFixed(2));
       const fileName = safeText(raw.file.name, 160).replace(/[\\/]/g, '_') || ('print-file-' + (index + 1));
@@ -132,6 +134,8 @@ export default async function handler(req, res) {
         finishing: finish,
         copies,
         page_count: pageCount,
+        image_count: imageCount,
+        printed_image_count: printedImageCount,
         pages_per_sheet: pagesPerSheet,
         printed_sides_per_copy: printedSidesPerCopy,
         sheets_per_copy: sheetsPerCopy,
@@ -151,6 +155,8 @@ export default async function handler(req, res) {
       ? Number((items.reduce((sum, item) => sum + item.quoted_price, 0) + bindingFee).toFixed(2))
       : null;
     const totalPages = items.reduce((sum, item) => sum + (item.page_count || 0), 0);
+    const totalImages = items.reduce((sum, item) => sum + item.image_count, 0);
+    const totalPrintedImages = items.reduce((sum, item) => sum + item.printed_image_count, 0);
     const totalCopies = items.reduce((sum, item) => sum + item.copies, 0);
     const totalSize = items.reduce((sum, item) => sum + item.file_size, 0);
     const serviceSummary = items.length === 1 ? first.service_type : 'طلب متعدد الملفات (' + items.length + ' ملفات)';
@@ -182,6 +188,8 @@ export default async function handler(req, res) {
       file_name: first.file_name,
       files: items,
       file_count: items.length,
+      total_images: totalImages,
+      total_printed_images: totalPrintedImages,
       binding_fee: bindingFee,
     };
 
@@ -207,6 +215,9 @@ export default async function handler(req, res) {
 
     const publicFiles = items.map(item => ({
       file_name: item.file_name,
+      file_type: item.file_type,
+      image_count: item.image_count,
+      printed_image_count: item.printed_image_count,
       service_type: item.service_type,
       paper_type: item.paper_type,
       paper_size: item.paper_size,
@@ -224,7 +235,7 @@ export default async function handler(req, res) {
     }));
     return sendJson(res, 201, {
       ok: true,
-      order: { ...rows[0], file_count: items.length, files: publicFiles, binding_fee: bindingFee },
+      order: { ...rows[0], file_count: items.length, total_images: totalImages, total_printed_images: totalPrintedImages, files: publicFiles, binding_fee: bindingFee },
       trackingUrl: '/track.html?code=' + code,
       whatsapp,
       push,

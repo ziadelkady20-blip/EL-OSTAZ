@@ -151,14 +151,16 @@ if(form){
     return values.map(value=>'<option value="'+esc(value)+'" '+(value===selected?'selected':'')+'>'+esc(value)+'</option>').join('');
   }
   function pageStatus(item){
-    if(item.fileType!=='application/pdf')return 'صورة — ورقة واحدة لكل نسخة';
+    if(item.fileType!=='application/pdf')return 'صورة واحدة — تُحسب ورقة لكل نسخة';
     if(item.pageStatus==='reading')return 'جارٍ قراءة صفحات ملف PDF...';
     if(item.pageStatus==='error')return 'تعذرت قراءة الملف؛ أعد حفظه كـ PDF عادي';
     return item.pageCount+' صفحة';
   }
   function cardPriceText(item){
     const estimate=getEstimate(item);
-    if(estimate)return 'تكلفة هذا الملف: '+formatMoney(estimate.price)+' · '+estimate.totalSheets+' ورقة × '+formatMoney(estimate.pricePerSheet);
+    if(estimate)return item.fileType==='application/pdf'
+      ?'تكلفة هذا الملف: '+formatMoney(estimate.price)+' · '+estimate.totalSheets+' ورقة × '+formatMoney(estimate.pricePerSheet)
+      :'تكلفة الصورة: '+formatMoney(estimate.price)+' · صورة واحدة × '+item.copies+' نسخة';
     if(item.fileType==='application/pdf'&&item.pageStatus==='reading')return 'جارٍ حساب التكلفة...';
     return 'السعر يحتاج مراجعة المطبعة';
   }
@@ -195,10 +197,16 @@ if(form){
     const subtotal=priced.reduce((sum,item)=>sum+item.price,0);
     const allPriced=priced.length===items.length;
     const bindingFee=items.some(item=>item.finish==='تكعيب')?BINDING_FEE:0;
+    const imageItems=items.filter(item=>item.fileType.startsWith('image/'));
+    const totalImages=imageItems.length;
+    const totalPrintedImages=imageItems.reduce((sum,item)=>sum+Number(item.copies||1),0);
+    const imageSummary=totalImages
+      ?'<div class="price-estimate-file image-count-summary"><div class="price-estimate-file-head"><b>إجمالي الصور المرفوعة</b><strong>'+new Intl.NumberFormat('ar-EG').format(totalImages)+' صورة</strong></div><small>بعد احتساب النسخ: '+new Intl.NumberFormat('ar-EG').format(totalPrintedImages)+' صورة مطبوعة</small></div>'
+      :'';
     estimateHint.textContent=allPriced
       ?'تم حساب تكلفة كل الملفات حسب إعدادات كل ملف.'
       :'جارٍ استكمال قراءة بعض الملفات؛ سيظهر الحساب الكامل بعد انتهاء القراءة.';
-    estimateLines.innerHTML=items.map((item,index)=>{
+    estimateLines.innerHTML=imageSummary+items.map((item,index)=>{
       const estimate=estimates[index];
       const details=[
         item.service,
@@ -210,7 +218,7 @@ if(form){
       const pageDetails=estimate
         ?(item.fileType==='application/pdf'
           ?'صفحات الملف: '+item.pageCount+' · صفحات في الورقة: '+estimate.pagesPerSheet+' · الأوراق لكل نسخة: '+estimate.sheetsPerCopy+' · إجمالي الأوراق: '+estimate.totalSheets+' · سعر الورقة: '+formatMoney(estimate.pricePerSheet)
-          :'صورة · ورقة لكل نسخة · إجمالي الأوراق: '+estimate.totalSheets+' · سعر الورقة: '+formatMoney(estimate.pricePerSheet))
+          :'عدد الصور: ١ · بعد النسخ: '+item.copies+' صورة مطبوعة · إجمالي الأوراق: '+estimate.totalSheets+' · سعر الورقة: '+formatMoney(estimate.pricePerSheet))
         :pageStatus(item);
       const price=estimate?formatMoney(estimate.price):(item.pageStatus==='reading'?'جارٍ الحساب':'يحتاج مراجعة');
       return '<div class="price-estimate-file"><div class="price-estimate-file-head"><b>'+(index+1)+'. '+esc(item.file.name)+'</b><strong>'+esc(price)+'</strong></div><small>'+esc(details)+'</small><small>'+esc(pageDetails)+'</small></div>';
