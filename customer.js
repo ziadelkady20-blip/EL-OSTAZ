@@ -70,6 +70,16 @@ if(form){
   const estimateTotal=document.getElementById('priceEstimateTotal');
   const estimateTotalLabel=document.getElementById('priceEstimateTotalLabel');
   const estimateNote=document.getElementById('priceEstimateNote');
+  const fulfillmentMethod=form.elements.fulfillmentMethod;
+  const deliveryAddressField=document.getElementById('deliveryAddressField');
+  const deliveryAddress=form.elements.deliveryAddress;
+  function syncFulfillmentFields(){
+    const needsDelivery=fulfillmentMethod.value==='delivery';
+    deliveryAddressField.hidden=!needsDelivery;
+    deliveryAddress.required=needsDelivery;
+    if(!needsDelivery)deliveryAddress.value='';
+  }
+  fulfillmentMethod.addEventListener('change',syncFulfillmentFields);
   const MAX_FILE=5*1024**4;
   const MAX_FILES=20;
   const PAGE_PRICE=0.75;
@@ -304,6 +314,20 @@ if(form){
     notice.textContent='';
     if(!items.length){notice.textContent='أضف ملفًا واحدًا على الأقل قبل إرسال الطلب.';return;}
     if(items.length>MAX_FILES){notice.textContent='الحد الأقصى '+MAX_FILES+' ملفًا في الطلب الواحد.';return;}
+    const orderData={
+      customer:form.elements.customer.value.trim(),
+      phone:form.elements.phone.value.trim(),
+      notes:form.elements.notes.value.trim(),
+      fulfillmentMethod:fulfillmentMethod.value,
+      deliveryAddress:deliveryAddress.value.trim()
+    };
+    if(!['pickup','delivery'].includes(orderData.fulfillmentMethod)){
+      notice.textContent='اختر طريقة الاستلام.';return;
+    }
+    if(orderData.fulfillmentMethod==='delivery'&&!orderData.deliveryAddress){
+      notice.textContent='اكتب عنوان التوصيل بالتفصيل.';deliveryAddress.focus();return;
+    }
+    if(orderData.fulfillmentMethod==='pickup')orderData.deliveryAddress='';
     for(let index=0;index<items.length;index++){
       const item=items[index];
       const copies=Number(item.copies);
@@ -367,14 +391,11 @@ if(form){
       }
       fileHelp.textContent='اكتمل رفع كل الملفات. جارٍ تسجيل الطلب...';
       submit.textContent='جارٍ تسجيل الطلب...';
-      const data=new FormData(form);
       const response=await fetch('/api/orders',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          customer:data.get('customer'),
-          phone:data.get('phone'),
-          notes:data.get('notes'),
+          ...orderData,
           items:uploadedItems
         })
       });
@@ -387,7 +408,7 @@ if(form){
       code.className='tracking-code';
       code.textContent='رقم طلبك: '+result.order.order_code;
       const help=document.createElement('p');
-      help.textContent='تم استلام '+items.length+' ملفًا. احتفظ برقم الطلب لمتابعة كل الملفات.';
+      help.textContent='تم استلام '+items.length+' ملفًا. '+(orderData.fulfillmentMethod==='delivery'?'اخترت التوصيل إلى العنوان المسجل.':'اخترت الاستلام من الفرع.')+' احتفظ برقم الطلب لمتابعة كل الملفات.';
       const total=document.createElement('p');
       total.className='order-confirmation-total';
       total.textContent=result.order.quoted_price!=null
@@ -399,6 +420,7 @@ if(form){
       link.textContent='تابع حالة طلبك ←';
       notice.append(heading,code,help,total,link);
       form.reset();
+      syncFulfillmentFields();
       items.splice(0,items.length);
       syncServices();
       renderFiles();
@@ -414,5 +436,6 @@ if(form){
   const year=document.getElementById('year');
   if(year)year.textContent=new Date().getFullYear();
   syncServices();
+  syncFulfillmentFields();
   renderFiles();
 }

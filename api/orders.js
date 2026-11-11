@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     const sql = getDb();
     if (req.method === 'GET') {
       if (!requireAdmin(req, res)) return;
-      const rows = await sql`SELECT id, order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_type, file_size, files, quoted_price, status, status_history, created_at, updated_at FROM public.print_orders ORDER BY created_at DESC LIMIT 300`;
+      const rows = await sql`SELECT id, order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_type, file_size, files, fulfillment_method, delivery_address, quoted_price, status, status_history, created_at, updated_at FROM public.print_orders ORDER BY created_at DESC LIMIT 300`;
       return sendJson(res, 200, { orders: rows });
     }
 
@@ -53,6 +53,11 @@ export default async function handler(req, res) {
     const customer = safeText(body.customer, 120);
     const phone = safeText(body.phone, 30);
     const notes = safeText(body.notes, 1500);
+    const fulfillmentMethod = safeText(body.fulfillmentMethod, 20) || 'pickup';
+    const rawDeliveryAddress = safeText(body.deliveryAddress, 700);
+    if (!['pickup', 'delivery'].includes(fulfillmentMethod)) throw new Error('اختر طريقة الاستلام');
+    if (fulfillmentMethod === 'delivery' && !rawDeliveryAddress) throw new Error('اكتب عنوان التوصيل بالتفصيل');
+    const deliveryAddress = fulfillmentMethod === 'delivery' ? rawDeliveryAddress : null;
     if (!customer || !/^\+?[0-9٠-٩\s()-]{8,20}$/.test(phone)) throw new Error('راجع الاسم ورقم الهاتف');
 
     // Accept the previous single-file payload as well, so older installed PWAs remain compatible.
@@ -137,15 +142,17 @@ export default async function handler(req, res) {
     const history = JSON.stringify([{ status: 'new', at: new Date().toISOString(), message: 'تم استلام طلبك بنجاح' }]);
 
     const rows = await sql`INSERT INTO public.print_orders
-      (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, quoted_price, notes, file_name, file_path, file_type, file_size, files, status, status_history, created_at, updated_at)
-      VALUES (${code}, ${customer}, ${phone}, ${serviceSummary}, ${paperSummary}, ${sizeSummary}, ${finishSummary}, ${Math.min(500, totalCopies)}, ${Math.max(1, Math.min(1000, totalPages))}, ${totalPrice}, ${notes || null}, ${first.file_name}, ${first.file_path}, ${first.file_type}, ${totalSize}, ${filesJson}::jsonb, 'new', ${history}::jsonb, NOW(), NOW())
-      RETURNING id, order_code, status, page_count, quoted_price, created_at`;
+      (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, quoted_price, notes, file_name, file_path, file_type, file_size, files, fulfillment_method, delivery_address, status, status_history, created_at, updated_at)
+      VALUES (${code}, ${customer}, ${phone}, ${serviceSummary}, ${paperSummary}, ${sizeSummary}, ${finishSummary}, ${Math.min(500, totalCopies)}, ${Math.max(1, Math.min(1000, totalPages))}, ${totalPrice}, ${notes || null}, ${first.file_name}, ${first.file_path}, ${first.file_type}, ${totalSize}, ${filesJson}::jsonb, ${fulfillmentMethod}, ${deliveryAddress}, 'new', ${history}::jsonb, NOW(), NOW())
+      RETURNING id, order_code, status, page_count, quoted_price, fulfillment_method, delivery_address, created_at`;
     orderSaved = true;
 
     const savedOrder = {
       ...rows[0],
       customer_name: customer,
       phone,
+      fulfillment_method: fulfillmentMethod,
+      delivery_address: deliveryAddress,
       service_type: serviceSummary,
       paper_type: paperSummary,
       paper_size: sizeSummary,
@@ -204,7 +211,7 @@ export default async function handler(req, res) {
     }
     console.error('orders api error', error);
     const message = error?.message || '';
-    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|ملف واحد إلى ٢٠/i.test(message) ? 400 : 500;
+    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|ملف واحد إلى ٢٠|اختر طريقة الاستلام|عنوان التوصيل/i.test(message) ? 400 : 500;
     return sendJson(res, status, { error: status === 400 ? message : 'حدث خطأ أثناء حفظ الطلب. حاول مرة أخرى.' });
   }
 }

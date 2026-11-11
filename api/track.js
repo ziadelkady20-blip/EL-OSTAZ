@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     const code = String(new URL(req.url, 'https://ostaz.local').searchParams.get('code') || '').trim().toUpperCase();
     if (!/^OST-[A-F0-9]{14}$/.test(code)) return sendJson(res, 400, { error: 'اكتب رقم الطلب بشكل صحيح' });
     const sql = getDb();
-    const rows = await sql`SELECT order_code, service_type, status, status_history, page_count, copies, quoted_price, file_type, files, created_at, updated_at FROM public.print_orders WHERE order_code = ${code} LIMIT 1`;
+    const rows = await sql`SELECT order_code, service_type, status, status_history, page_count, copies, quoted_price, file_type, files, fulfillment_method, created_at, updated_at FROM public.print_orders WHERE order_code = ${code} LIMIT 1`;
     if (!rows.length) return sendJson(res, 404, { error: 'لم نعثر على طلب بهذا الرقم. راجع رقم الطلب وحاول مرة أخرى.' });
     const order = rows[0];
     const files = Array.isArray(order.files) && order.files.length
@@ -40,6 +40,7 @@ export default async function handler(req, res) {
         page_count: order.page_count,
         copies: order.copies,
         quoted_price: order.quoted_price,
+        fulfillment_method: order.fulfillment_method || 'pickup',
         files,
         created_at: order.created_at,
         updated_at: order.updated_at,
