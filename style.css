@@ -460,3 +460,25 @@ footer a:not(.brand):hover{color:#fff}
   .install-app-copy{min-width:calc(100% - 84px)}
   .install-app-button{width:100%}
 }
+
+
+/* Live PDF print-price estimate */
+.price-estimate{
+  border:1px solid #dce3fb;
+  border-radius:18px;
+  padding:18px 20px;
+  background:linear-gradient(135deg,#f6f8ff 0%,#fff 72%,#fffaf0 100%);
+  box-shadow:0 10px 28px rgba(41,57,145,.06);
+}
+.price-estimate[hidden]{display:none}
+.price-estimate-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.price-estimate-head>span{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:#e9edff;font-size:21px}
+.price-estimate-head b{display:block;color:var(--brand-dark);font-size:15px;font-weight:900}
+.price-estimate-head small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.price-estimate-lines{display:grid;gap:8px;padding:12px 0;border-top:1px solid #e7ebf6;border-bottom:1px solid #e7ebf6}
+.price-estimate-line{display:flex;justify-content:space-between;gap:12px;color:#626d87;font-size:13px}
+.price-estimate-line b{color:var(--ink);font-weight:800}
+.price-estimate-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:13px;color:var(--brand-dark);font-weight:900}
+.price-estimate-total strong{font-size:25px;color:var(--brand);font-weight:900}
+.price-estimate-note{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.8}
+@media(max-width:600px){.price-estimate{padding:15px}.price-estimate-total strong{font-size:22px}}
