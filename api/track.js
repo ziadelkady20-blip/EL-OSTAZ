@@ -19,6 +19,8 @@ export default async function handler(req, res) {
           finishing: file.finishing,
           copies: file.copies,
           page_count: file.page_count,
+          pages_per_sheet: file.pages_per_sheet,
+          printed_sides_per_copy: file.printed_sides_per_copy,
           sheets_per_copy: file.sheets_per_copy,
           total_sheets: file.total_sheets,
           quoted_price: file.quoted_price,

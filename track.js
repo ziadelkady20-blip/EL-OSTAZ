@@ -28,7 +28,7 @@ async function track(code){
         'التقفيل: '+(file.finishing||'—'),
         'النسخ: '+(file.copies||1)
       ].join(' · ');
-      const pages=file.page_count!=null?'الصفحات: '+file.page_count+' · الأوراق لكل نسخة: '+(file.sheets_per_copy??'—')+' · إجمالي الأوراق: '+(file.total_sheets??'—'):'ملف صورة أو خدمة تحتاج مراجعة';
+      const pages=file.page_count!=null?'الصفحات: '+file.page_count+' · صفحات في الورقة: '+(file.pages_per_sheet??1)+' · الأوجه لكل نسخة: '+(file.printed_sides_per_copy??'—')+' · الأوراق الفعلية لكل نسخة: '+(file.sheets_per_copy??'—')+' · إجمالي الأوراق: '+(file.total_sheets??'—'):'ملف صورة أو خدمة تحتاج مراجعة';
       const price=file.quoted_price!=null?Number(file.quoted_price).toFixed(2)+' جنيه':'يحدد بعد مراجعة المطبعة';
       return '<article class="track-file-item"><div><b>'+esc((index+1)+'. '+(file.file_name||'ملف الطباعة'))+'</b><strong>'+esc(price)+'</strong></div><small>'+esc(details)+'</small><small>'+esc(pages)+'</small>'+(file.notes?'<p>'+esc(file.notes)+'</p>':'')+'</article>';
     }).join('');
