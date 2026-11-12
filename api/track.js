@@ -41,7 +41,6 @@ export default async function handler(req, res) {
           page_count: order.page_count,
           quoted_price: order.quoted_price,
         }];
-    const printableFiles = order.file_type ? files : (Array.isArray(order.files) ? order.files : []);
     const safeFiles = order.file_type || (Array.isArray(order.files) && order.files.length) ? files : [];
     const totalImages = safeFiles.reduce((sum, file) => sum + Number(file.image_count || 0), 0);
     const totalPrintedImages = safeFiles.reduce((sum, file) => sum + Number(file.printed_image_count || 0), 0);
