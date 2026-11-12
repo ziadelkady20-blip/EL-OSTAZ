@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     const code = String(new URL(req.url, 'https://ostaz.local').searchParams.get('code') || '').trim().toUpperCase();
     if (!/^OST-[A-F0-9]{14}$/.test(code)) return sendJson(res, 400, { error: 'اكتب رقم الطلب بشكل صحيح' });
     const sql = getDb();
-    const rows = await sql`SELECT order_code, service_type, status, status_history, page_count, copies, quoted_price, file_type, files, fulfillment_method, created_at, updated_at FROM public.print_orders WHERE order_code = ${code} LIMIT 1`;
+    const rows = await sql`SELECT order_code, service_type, status, status_history, page_count, copies, quoted_price, file_type, files, catalog_items, catalog_total, print_total, fulfillment_method, created_at, updated_at FROM public.print_orders WHERE order_code = ${code} LIMIT 1`;
     if (!rows.length) return sendJson(res, 404, { error: 'لم نعثر على طلب بهذا الرقم. راجع رقم الطلب وحاول مرة أخرى.' });
     const order = rows[0];
     const files = Array.isArray(order.files) && order.files.length
@@ -41,8 +41,9 @@ export default async function handler(req, res) {
           page_count: order.page_count,
           quoted_price: order.quoted_price,
         }];
-    const totalImages = files.reduce((sum, file) => sum + Number(file.image_count || 0), 0);
-    const totalPrintedImages = files.reduce((sum, file) => sum + Number(file.printed_image_count || 0), 0);
+    const safeFiles = order.file_type || (Array.isArray(order.files) && order.files.length) ? files : [];
+    const totalImages = safeFiles.reduce((sum, file) => sum + Number(file.image_count || 0), 0);
+    const totalPrintedImages = safeFiles.reduce((sum, file) => sum + Number(file.printed_image_count || 0), 0);
     return sendJson(res, 200, {
       order: {
         order_code: order.order_code,
@@ -54,9 +55,12 @@ export default async function handler(req, res) {
         quoted_price: order.quoted_price,
         total_images: totalImages,
         total_printed_images: totalPrintedImages,
-        binding_fee: Number(files[0]?.order_binding_fee || 0),
+        binding_fee: Number(safeFiles[0]?.order_binding_fee || 0),
+        catalog_items: Array.isArray(order.catalog_items) ? order.catalog_items : [],
+        catalog_total: Number(order.catalog_total || 0),
+        print_total: order.print_total == null ? null : Number(order.print_total),
         fulfillment_method: order.fulfillment_method || 'pickup',
-        files,
+        files: safeFiles,
         created_at: order.created_at,
         updated_at: order.updated_at,
       },

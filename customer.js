@@ -230,7 +230,7 @@ if(form){
     renderEstimate();
   }
   function renderEstimate(){
-    if(!items.length){estimateHost.hidden=true;return;}
+    if(!items.length){estimateHost.hidden=true;renderStoreCart();return;}
     estimateHost.hidden=false;
     const estimates=items.map(getEstimate);
     const priced=estimates.filter(Boolean);
@@ -273,6 +273,7 @@ if(form){
       const priceHost=card?.querySelector('.file-item-price');
       if(priceHost)priceHost.textContent=cardPriceText(item);
     });
+    renderStoreCart();
   }
   async function readPdfPageCount(file){
     if(!pdfjsPromise){
@@ -449,10 +450,121 @@ if(form){
     fileHelp.textContent=items.length?'يمكنك متابعة تعديل الملفات أو إضافة ملفات أخرى.':'تم حذف كل الملفات من الطلب.';
   });
 
+  const storeCategoriesHost=document.getElementById('storeCategories');
+  const storeProductsHost=document.getElementById('storeProducts');
+  const storeCartHost=document.getElementById('storeCartItems');
+  const storeCartCount=document.getElementById('storeCartCount');
+  const storeCartSubtotal=document.getElementById('storeCartSubtotal');
+  const storeCartTotal=document.getElementById('storeCartTotal');
+  const storeCartCombinedTotal=document.getElementById('storeCartCombinedTotal');
+  const cart=new Map();
+  let catalog={categories:[],products:[]};
+  let selectedCategory='all';
+
+  function safeImageUrl(value){
+    try{
+      const url=new URL(String(value||''),location.origin);
+      return ['https:','http:'].includes(url.protocol)?url.href:'';
+    }catch{return '';}
+  }
+  function renderStoreCategories(){
+    if(!storeCategoriesHost)return;
+    const buttons=[{id:'all',name:'كل المنتجات'},...catalog.categories.map(category=>({id:String(category.id),name:category.name}))];
+    storeCategoriesHost.innerHTML=buttons.map(category=>'<button type="button" class="store-category '+(String(category.id)===selectedCategory?'is-active':'')+'" data-category="'+esc(category.id)+'">'+esc(category.name)+'</button>').join('');
+  }
+  function renderStoreProducts(){
+    if(!storeProductsHost)return;
+    const visible=catalog.products.filter(product=>selectedCategory==='all'||String(product.category_id)===selectedCategory);
+    if(!visible.length){
+      storeProductsHost.innerHTML='<div class="store-empty">'+(catalog.products.length?'لا توجد منتجات في هذا القسم حاليًا.':'المتجر جاهز لاستقبال منتجاته. أضف المنتجات والأسعار من لوحة الإدارة.')+'</div>';
+      return;
+    }
+    storeProductsHost.innerHTML=visible.map(product=>{
+      const photo=safeImageUrl(product.image_url);
+      const available=Boolean(product.active);
+      return '<article class="store-product-card">'+
+        '<div class="store-product-image">'+(photo?'<img src="'+esc(photo)+'" alt="'+esc(product.name)+'" loading="lazy">':'<span aria-hidden="true">📚</span>')+'</div>'+
+        '<div class="store-product-copy"><small>'+esc(product.category_name||'الأدوات المدرسية')+'</small><h4>'+esc(product.name)+'</h4><p>'+esc(product.description||'')+'</p>'+
+        '<div class="store-product-bottom"><strong>'+formatMoney(Number(product.price||0))+'</strong>'+
+        (available?'<button type="button" class="btn store-add-button" data-add-product="'+esc(product.id)+'">أضف للسلة +</button>':'<span class="store-unavailable">غير متوفر</span>')+
+        '</div></div></article>';
+    }).join('');
+  }
+  function renderStoreCart(){
+    if(!storeCartHost)return;
+    const cartItems=[...cart.values()];
+    const quantity=cartItems.reduce((sum,item)=>sum+item.quantity,0);
+    const subtotal=Number(cartItems.reduce((sum,item)=>sum+item.price*item.quantity,0).toFixed(2));
+    if(storeCartCount)storeCartCount.textContent=quantity?quantity+' قطعة في السلة':'لا توجد منتجات مضافة';
+    if(storeCartSubtotal)storeCartSubtotal.textContent=formatMoney(subtotal);
+    if(storeCartTotal)storeCartTotal.textContent=formatMoney(subtotal);
+    if(!cartItems.length){
+      storeCartHost.innerHTML='<p class="store-empty">لم تضف منتجات من المتجر بعد. يمكنك إرسال طلب طباعة فقط أو الجمع بين الاثنين.</p>';
+    }else{
+      storeCartHost.innerHTML=cartItems.map(item=>'<div class="store-cart-row" data-cart-id="'+esc(item.id)+'">'+
+        '<div class="store-cart-product"><b>'+esc(item.name)+'</b><small>'+formatMoney(item.price)+' للقطعة</small></div>'+
+        '<div class="store-cart-controls"><button type="button" data-cart-action="decrease" aria-label="تقليل الكمية">−</button><b>'+item.quantity+'</b><button type="button" data-cart-action="increase" aria-label="زيادة الكمية">+</button><button type="button" class="store-remove" data-cart-action="remove">حذف</button></div>'+
+        '<strong>'+formatMoney(item.price*item.quantity)+'</strong></div>').join('');
+    }
+    const estimates=items.map(getEstimate);
+    const allPrintPriced=estimates.every(Boolean);
+    const printTotal=items.length&&allPrintPriced
+      ?Number((estimates.reduce((sum,item)=>sum+item.price,0)+(items.some(item=>item.finish==='تكعيب')?BINDING_FEE:0)).toFixed(2))
+      :0;
+    if(storeCartCombinedTotal){
+      storeCartCombinedTotal.textContent=items.length&&!allPrintPriced?'يكتمل بعد حساب ملفات الطباعة':formatMoney(printTotal+subtotal);
+    }
+  }
+  async function loadStoreCatalog(){
+    if(!storeProductsHost)return;
+    try{
+      const response=await fetch('/api/orders?catalog=public',{cache:'no-store'});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||'تعذر تحميل المتجر');
+      catalog={categories:data.categories||[],products:data.products||[]};
+      renderStoreCategories();
+      renderStoreProducts();
+      renderStoreCart();
+    }catch(error){
+      storeProductsHost.innerHTML='<div class="store-empty">'+esc(error.message||'تعذر تحميل منتجات المتجر')+'</div>';
+    }
+  }
+  storeCategoriesHost?.addEventListener('click',event=>{
+    const button=event.target.closest('[data-category]');
+    if(!button)return;
+    selectedCategory=button.dataset.category;
+    renderStoreCategories();
+    renderStoreProducts();
+  });
+  storeProductsHost?.addEventListener('click',event=>{
+    const button=event.target.closest('[data-add-product]');
+    if(!button)return;
+    const product=catalog.products.find(item=>String(item.id)===button.dataset.addProduct);
+    if(!product||!product.active)return;
+    const key=String(product.id);
+    const current=cart.get(key);
+    if(current)current.quantity=Math.min(500,current.quantity+1);
+    else cart.set(key,{id:Number(product.id),name:product.name,price:Number(product.price),quantity:1});
+    renderStoreCart();
+    button.textContent='تمت الإضافة ✓';
+    window.setTimeout(()=>{if(button.isConnected)button.textContent='أضف للسلة +';},900);
+  });
+  storeCartHost?.addEventListener('click',event=>{
+    const button=event.target.closest('[data-cart-action]');
+    if(!button)return;
+    const row=button.closest('[data-cart-id]');
+    const item=cart.get(row?.dataset.cartId);
+    if(!item)return;
+    if(button.dataset.cartAction==='increase')item.quantity=Math.min(500,item.quantity+1);
+    if(button.dataset.cartAction==='decrease')item.quantity=Math.max(0,item.quantity-1);
+    if(button.dataset.cartAction==='remove'||item.quantity===0)cart.delete(String(item.id));
+    renderStoreCart();
+  });
+
   form.addEventListener('submit',async event=>{
     event.preventDefault();
     notice.textContent='';
-    if(!items.length){notice.textContent='أضف ملفًا واحدًا على الأقل قبل إرسال الطلب.';return;}
+    if(!items.length&&!cart.size){notice.textContent='أضف ملف طباعة أو منتجًا واحدًا على الأقل قبل إرسال الطلب.';return;}
     if(items.length>MAX_FILES){notice.textContent='الحد الأقصى '+MAX_FILES+' ملفًا في الطلب الواحد.';return;}
     const orderData={
       customer:form.elements.customer.value.trim(),
@@ -544,7 +656,8 @@ if(form){
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           ...orderData,
-          items:uploadedItems
+          items:uploadedItems,
+          products:[...cart.values()].map(item=>({id:item.id,quantity:item.quantity}))
         })
       });
       const result=await response.json();
@@ -556,7 +669,8 @@ if(form){
       code.className='tracking-code';
       code.textContent='رقم طلبك: '+result.order.order_code;
       const help=document.createElement('p');
-      help.textContent='تم استلام '+items.length+' ملفًا. '+(orderData.fulfillmentMethod==='delivery'?'اخترت التوصيل إلى العنوان المسجل.':'اخترت الاستلام من الفرع.')+' احتفظ برقم الطلب لمتابعة كل الملفات.';
+      const productCount=[...cart.values()].reduce((sum,item)=>sum+item.quantity,0);
+      help.textContent='تم استلام '+items.length+' ملف طباعة و'+productCount+' قطعة من المتجر. '+(orderData.fulfillmentMethod==='delivery'?'اخترت التوصيل إلى العنوان المسجل.':'اخترت الاستلام من الفرع.')+' احتفظ برقم الطلب لمتابعة كل الطلب.';
       const total=document.createElement('p');
       total.className='order-confirmation-total';
       total.textContent=result.order.quoted_price!=null
@@ -570,7 +684,9 @@ if(form){
       form.reset();
       syncFulfillmentFields();
       items.splice(0,items.length);
+      cart.clear();
       syncServices();
+      renderStoreCart();
       renderFiles();
       fileHelp.textContent='يمكنك اختيار عدة ملفات PDF مرة واحدة، أو الضغط مجددًا لإضافة ملفات أخرى. الحد الأقصى ٢٠ ملفًا للطلب.';
     }catch(error){
@@ -586,6 +702,7 @@ if(form){
   syncServices();
   syncFulfillmentFields();
   renderFiles();
+  void loadStoreCatalog();
   void consumeAndroidShare();
   void consumeIosShare();
 }

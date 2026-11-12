@@ -14,6 +14,7 @@ function showDashboard(username){
   dashboard.hidden=false;
   document.getElementById('adminIdentity').textContent='مرحبًا، '+username;
   loadOrders();
+  loadCatalogAdmin();
   setupPushNotifications();
 }
 async function checkSession(){
@@ -54,6 +55,156 @@ async function loadOrders(){
     document.getElementById('lastUpdated').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-EG');
   }catch(error){ordersHost.innerHTML='<div class="empty">'+esc(error.message)+'</div>';}
 }
+const categoryForm=document.getElementById('categoryForm');
+const productForm=document.getElementById('productForm');
+const adminCategoriesHost=document.getElementById('adminCategories');
+const adminProductsHost=document.getElementById('adminProducts');
+const productCategorySelect=document.getElementById('productCategory');
+const catalogAdminNotice=document.getElementById('catalogAdminNotice');
+let catalogCategories=[];
+let catalogProducts=[];
+
+function catalogMessage(message){
+  if(catalogAdminNotice)catalogAdminNotice.textContent=message||'';
+}
+function resetCategoryForm(){
+  categoryForm?.reset();
+  if(categoryForm)categoryForm.elements.id.value='';
+  const button=categoryForm?.querySelector('button[type="submit"]');
+  if(button)button.textContent='حفظ القسم';
+}
+function resetProductForm(){
+  productForm?.reset();
+  if(productForm){
+    productForm.elements.id.value='';
+    productForm.elements.active.value='true';
+  }
+  const button=productForm?.querySelector('button[type="submit"]');
+  if(button)button.textContent='حفظ المنتج';
+}
+function renderCatalogAdmin(){
+  if(!adminCategoriesHost||!adminProductsHost||!productCategorySelect)return;
+  const activeCategories=catalogCategories.filter(item=>item.active);
+  productCategorySelect.innerHTML=activeCategories.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.name)+'</option>').join('');
+  if(!activeCategories.length)productCategorySelect.innerHTML='<option value="">أضف قسمًا متاحًا أولًا</option>';
+  adminCategoriesHost.innerHTML=catalogCategories.length?catalogCategories.map(category=>'<div class="admin-catalog-row"><div><b>'+esc(category.name)+'</b><small>'+(category.active?'ظاهر في المتجر':'مخفي من المتجر')+'</small></div><div class="admin-catalog-row-actions"><button type="button" class="btn light" data-edit-category="'+esc(category.id)+'">تعديل</button><button type="button" class="btn outline" data-toggle-category="'+esc(category.id)+'">'+(category.active?'إخفاء':'إظهار')+'</button></div></div>').join(''):'<div class="empty">لا توجد أقسام.</div>';
+  adminProductsHost.innerHTML=catalogProducts.length?catalogProducts.map(product=>'<article class="admin-product-row"><div class="admin-product-main">'+(product.image_url?'<img src="'+esc(product.image_url)+'" alt="" loading="lazy">':'<span class="admin-product-placeholder">📦</span>')+'<div><b>'+esc(product.name)+'</b><small>'+esc(product.category_name||'—')+' · '+esc(Number(product.price).toFixed(2))+' جنيه</small>'+(product.description?'<small>'+esc(product.description)+'</small>':'')+'</div></div><div class="admin-catalog-row-actions"><span class="status-pill '+(product.active?'status-ready':'status-cancelled')+'">'+(product.active?'متاح':'غير متاح')+'</span><button type="button" class="btn light" data-edit-product="'+esc(product.id)+'">تعديل</button><button type="button" class="btn outline" data-toggle-product="'+esc(product.id)+'">'+(product.active?'إيقاف البيع':'إتاحة للبيع')+'</button></div></article>').join(''):'<div class="empty">لا توجد منتجات حتى الآن. أضف أول منتج من النموذج أعلاه.</div>';
+}
+async function loadCatalogAdmin(){
+  if(!categoryForm||!productForm)return;
+  try{
+    const response=await fetch('/api/orders?catalog=admin',{credentials:'same-origin',cache:'no-store'});
+    if(response.status===401){loginView.hidden=false;dashboard.hidden=true;return;}
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'تعذر تحميل بيانات المتجر');
+    catalogCategories=data.categories||[];
+    catalogProducts=data.products||[];
+    renderCatalogAdmin();
+    catalogMessage('تم تحميل '+catalogCategories.length+' قسم و'+catalogProducts.length+' منتج.');
+  }catch(error){
+    if(adminProductsHost)adminProductsHost.innerHTML='<div class="empty">'+esc(error.message)+'</div>';
+    catalogMessage(error.message);
+  }
+}
+async function saveCatalogData(payload,method='POST'){
+  const response=await fetch('/api/orders?catalog=admin',{
+    method,
+    headers:{'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body:JSON.stringify(payload)
+  });
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.error||'تعذر حفظ بيانات المتجر');
+  return result;
+}
+categoryForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const button=categoryForm.querySelector('button[type="submit"]');
+  button.disabled=true;
+  try{
+    const id=categoryForm.elements.id.value;
+    await saveCatalogData({type:'category',id:id||undefined,name:categoryForm.elements.name.value.trim()});
+    resetCategoryForm();
+    catalogMessage('تم حفظ القسم.');
+    await loadCatalogAdmin();
+  }catch(error){catalogMessage(error.message);}
+  finally{button.disabled=false;}
+});
+productForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const button=productForm.querySelector('button[type="submit"]');
+  button.disabled=true;
+  try{
+    const data=Object.fromEntries(new FormData(productForm));
+    await saveCatalogData({
+      type:'product',
+      id:data.id||undefined,
+      categoryId:data.categoryId,
+      name:data.name.trim(),
+      description:data.description.trim(),
+      price:Number(data.price),
+      imageUrl:data.imageUrl.trim(),
+      active:data.active==='true'
+    });
+    resetProductForm();
+    catalogMessage('تم حفظ المنتج.');
+    await loadCatalogAdmin();
+  }catch(error){catalogMessage(error.message);}
+  finally{button.disabled=false;}
+});
+document.getElementById('cancelCategoryEdit')?.addEventListener('click',resetCategoryForm);
+document.getElementById('cancelProductEdit')?.addEventListener('click',resetProductForm);
+document.getElementById('refreshCatalog')?.addEventListener('click',loadCatalogAdmin);
+adminCategoriesHost?.addEventListener('click',async event=>{
+  const edit=event.target.closest('[data-edit-category]');
+  const toggle=event.target.closest('[data-toggle-category]');
+  if(edit){
+    const category=catalogCategories.find(item=>String(item.id)===edit.dataset.editCategory);
+    if(!category)return;
+    categoryForm.elements.id.value=category.id;
+    categoryForm.elements.name.value=category.name;
+    categoryForm.querySelector('button[type="submit"]').textContent='حفظ تعديل القسم';
+    categoryForm.scrollIntoView({behavior:'smooth',block:'center'});
+  }else if(toggle){
+    const category=catalogCategories.find(item=>String(item.id)===toggle.dataset.toggleCategory);
+    if(!category)return;
+    try{
+      await saveCatalogData({type:'category',id:category.id,active:!category.active},'PATCH');
+      catalogMessage('تم تحديث حالة القسم.');
+      await loadCatalogAdmin();
+    }catch(error){catalogMessage(error.message);}
+  }
+});
+adminProductsHost?.addEventListener('click',async event=>{
+  const edit=event.target.closest('[data-edit-product]');
+  const toggle=event.target.closest('[data-toggle-product]');
+  if(edit){
+    const product=catalogProducts.find(item=>String(item.id)===edit.dataset.editProduct);
+    if(!product)return;
+    if(!catalogCategories.some(item=>item.active&&String(item.id)===String(product.category_id))){
+      catalogMessage('أظهر القسم أولًا حتى تتمكن من تعديل هذا المنتج.');
+      return;
+    }
+    productForm.elements.id.value=product.id;
+    productForm.elements.categoryId.value=product.category_id;
+    productForm.elements.name.value=product.name;
+    productForm.elements.description.value=product.description||'';
+    productForm.elements.price.value=product.price;
+    productForm.elements.imageUrl.value=product.image_url||'';
+    productForm.elements.active.value=String(product.active);
+    productForm.querySelector('button[type="submit"]').textContent='حفظ تعديل المنتج';
+    productForm.scrollIntoView({behavior:'smooth',block:'center'});
+  }else if(toggle){
+    const product=catalogProducts.find(item=>String(item.id)===toggle.dataset.toggleProduct);
+    if(!product)return;
+    try{
+      await saveCatalogData({type:'product',id:product.id,active:!product.active},'PATCH');
+      catalogMessage('تم تحديث حالة المنتج.');
+      await loadCatalogAdmin();
+    }catch(error){catalogMessage(error.message);}
+  }
+});
+
 function renderOrders(){
   document.getElementById('total').textContent=allOrders.length;
   document.getElementById('newCount').textContent=allOrders.filter(o=>o.status==='new').length;
@@ -63,7 +214,7 @@ function renderOrders(){
   const status=document.getElementById('statusFilter').value;
   const visible=allOrders.filter(o=>{
     const matchesStatus=!status||o.status===status;
-    const haystack=[o.order_code,o.customer_name,o.phone,o.delivery_address].join(' ').toLowerCase();
+    const haystack=[o.order_code,o.customer_name,o.phone,o.delivery_address,(Array.isArray(o.catalog_items)?o.catalog_items.map(item=>item.name).join(' '):'')].join(' ').toLowerCase();
     return matchesStatus&&haystack.includes(query);
   });
   if(!visible.length){ordersHost.innerHTML='<div class="empty">لا توجد طلبات مطابقة للبحث الحالي.</div>';return;}
@@ -71,7 +222,8 @@ function renderOrders(){
     const history=Array.isArray(order.status_history)?order.status_history:[];
     const timeline=history.map(item=>'<li><b>'+esc(statusLabels[item.status]||item.status)+'</b><small>'+esc(dateText(item.at))+'</small>'+(item.message?'<p>'+esc(item.message)+'</p>':'')+'</li>').join('');
     const options=statusOptions.map(([value,label])=>'<option value="'+value+'" '+(order.status===value?'selected':'')+'>'+label+'</option>').join('');
-    const orderFiles=Array.isArray(order.files)&&order.files.length?order.files:[{
+    const rawFiles=Array.isArray(order.files)?order.files:[];
+    const orderFiles=rawFiles.length?rawFiles:(order.file_type?[{
       file_name:order.file_name,
       file_type:order.file_type,
       service_type:order.service_type,
@@ -81,17 +233,22 @@ function renderOrders(){
       copies:order.copies,
       page_count:order.page_count,
       quoted_price:order.quoted_price
-    }];
+    }]:[]);
+    const catalogItems=Array.isArray(order.catalog_items)?order.catalog_items:[];
     const totalImages=orderFiles.reduce((sum,file)=>sum+Number(file.image_count??(String(file.file_type||'').startsWith('image/')?1:0)),0);
     const totalPrintedImages=orderFiles.reduce((sum,file)=>sum+Number(file.printed_image_count??(String(file.file_type||'').startsWith('image/')?(file.image_count??1)*(file.copies||1):0)),0);
     const bindingFee=Number(order.binding_fee??orderFiles[0]?.order_binding_fee??0);
+    const printTotalForDisplay=order.print_total!=null?order.print_total:(catalogItems.length?null:order.quoted_price);
     const bindingFeeMarkup=bindingFee>0?'<p class="order-customer-note"><b>رسوم التكعيب (على الأوردر مرة واحدة):</b> '+esc(bindingFee.toFixed(2))+' جنيه</p>':'';
     const fulfillmentMarkup='<p class="order-customer-note"><b>طريقة الاستلام:</b> '+(order.fulfillment_method==='delivery'?'توصيل للعنوان':'استلام من الفرع')+(order.fulfillment_method==='delivery'?'<br><b>عنوان التوصيل:</b> '+esc(order.delivery_address||'—'):'')+'</p>';
-    const filesMarkup='<section class="admin-order-files"><div class="admin-order-files-title"><b>ملفات الطلب ('+orderFiles.length+')'+(totalImages?' · '+totalImages+' صورة / '+totalPrintedImages+' بعد النسخ':'')+'</b><strong>'+(order.quoted_price!=null?esc(Number(order.quoted_price).toFixed(2))+' جنيه':'الإجمالي يحتاج مراجعة')+'</strong></div>'+bindingFeeMarkup+orderFiles.map((file,index)=>'<article class="admin-order-file"><div class="admin-order-file-head"><b>'+esc((index+1)+'. '+(file.file_name||'ملف الطباعة'))+'</b><a class="btn light file-download" href="/api/orders/file?id='+order.id+'&fileIndex='+index+'">تنزيل الملف ↓</a></div><div class="admin-order-file-grid"><div><small>الخدمة</small><b>'+esc(file.service_type||'—')+'</b></div><div><small>الورق والمقاس</small><b>'+esc((file.paper_type||'—')+' · '+(file.paper_size||'—'))+'</b></div><div><small>التقفيل والنسخ</small><b>'+esc((file.finishing||'—')+' · '+(file.copies||1)+' نسخة')+'</b></div><div><small>'+(Number(file.image_count??0)>0||String(file.file_type||'').startsWith('image/')?'عدد الصور':'عدد الصفحات')+'</small><b>'+(Number(file.image_count??0)>0||String(file.file_type||'').startsWith('image/')?esc(file.image_count??1)+' صورة':((file.page_count)?esc(file.page_count)+' صفحة':'—'))+'</b></div><div><small>الصور بعد النسخ</small><b>'+(Number(file.image_count??0)>0||String(file.file_type||'').startsWith('image/')?esc(file.printed_image_count??((file.image_count??1)*(file.copies||1)))+' صورة':'—')+'</b></div><div><small>صفحات في الورقة</small><b>'+esc(file.pages_per_sheet||1)+'</b></div><div><small>الأوجه لكل نسخة</small><b>'+(file.printed_sides_per_copy!=null?esc(file.printed_sides_per_copy):'—')+'</b></div><div><small>الأوراق الفعلية لكل نسخة</small><b>'+(file.sheets_per_copy!=null?esc(file.sheets_per_copy):'—')+'</b></div><div><small>إجمالي الأوراق المطبوعة</small><b>'+(file.total_sheets!=null?esc(file.total_sheets)+' ورقة':'—')+'</b></div><div><small>سعر الورقة</small><b>'+(file.price_per_sheet!=null?esc(Number(file.price_per_sheet).toFixed(2))+' جنيه':'—')+'</b></div><div><small>تكلفة الملف</small><b>'+(file.quoted_price!=null?esc(Number(file.quoted_price).toFixed(2))+' جنيه':'يحتاج تسعير')+'</b></div></div>'+(file.notes?'<p class="order-customer-note"><b>ملاحظات الملف:</b> '+esc(file.notes)+'</p>':'')+'</article>').join('')+'</section>';
+
+    const filesMarkup=orderFiles.length?'<section class="admin-order-files"><div class="admin-order-files-title"><b>ملفات الطلب ('+orderFiles.length+')'+(totalImages?' · '+totalImages+' صورة / '+totalPrintedImages+' بعد النسخ':'')+'</b><strong>'+(printTotalForDisplay!=null?esc(Number(printTotalForDisplay).toFixed(2))+' جنيه':'الإجمالي يحتاج مراجعة')+'</strong></div>'+bindingFeeMarkup+orderFiles.map((file,index)=>'<article class="admin-order-file"><div class="admin-order-file-head"><b>'+esc((index+1)+'. '+(file.file_name||'ملف الطباعة'))+'</b><a class="btn light file-download" href="/api/orders/file?id='+order.id+'&fileIndex='+index+'">تنزيل الملف ↓</a></div><div class="admin-order-file-grid"><div><small>الخدمة</small><b>'+esc(file.service_type||'—')+'</b></div><div><small>الورق والمقاس</small><b>'+esc((file.paper_type||'—')+' · '+(file.paper_size||'—'))+'</b></div><div><small>التقفيل والنسخ</small><b>'+esc((file.finishing||'—')+' · '+(file.copies||1)+' نسخة')+'</b></div><div><small>'+(Number(file.image_count??0)>0||String(file.file_type||'').startsWith('image/')?'عدد الصور':'عدد الصفحات')+'</small><b>'+(Number(file.image_count??0)>0||String(file.file_type||'').startsWith('image/')?esc(file.image_count??1)+' صورة':((file.page_count)?esc(file.page_count)+' صفحة':'—'))+'</b></div><div><small>الصور بعد النسخ</small><b>'+(Number(file.image_count??0)>0||String(file.file_type||'').startsWith('image/')?esc(file.printed_image_count??((file.image_count??1)*(file.copies||1)))+' صورة':'—')+'</b></div><div><small>صفحات في الورقة</small><b>'+esc(file.pages_per_sheet||1)+'</b></div><div><small>الأوجه لكل نسخة</small><b>'+(file.printed_sides_per_copy!=null?esc(file.printed_sides_per_copy):'—')+'</b></div><div><small>الأوراق الفعلية لكل نسخة</small><b>'+(file.sheets_per_copy!=null?esc(file.sheets_per_copy):'—')+'</b></div><div><small>إجمالي الأوراق المطبوعة</small><b>'+(file.total_sheets!=null?esc(file.total_sheets)+' ورقة':'—')+'</b></div><div><small>سعر الورقة</small><b>'+(file.price_per_sheet!=null?esc(Number(file.price_per_sheet).toFixed(2))+' جنيه':'—')+'</b></div><div><small>تكلفة الملف</small><b>'+(file.quoted_price!=null?esc(Number(file.quoted_price).toFixed(2))+' جنيه':'يحتاج تسعير')+'</b></div></div>'+(file.notes?'<p class="order-customer-note"><b>ملاحظات الملف:</b> '+esc(file.notes)+'</p>':'')+'</article>').join('')+'</section>':'';
+    const catalogMarkup=catalogItems.length?'<section class="admin-order-files"><div class="admin-order-files-title"><b>مشتريات المتجر ('+catalogItems.length+' أصناف)</b><strong>'+esc(Number(order.catalog_total||0).toFixed(2))+' جنيه</strong></div>'+catalogItems.map((item,index)=>'<article class="admin-order-file"><div class="admin-order-file-head"><b>'+esc((index+1)+'. '+item.name)+'</b><strong>'+esc(Number(item.line_total||0).toFixed(2))+' جنيه</strong></div><div class="admin-order-file-grid"><div><small>القسم</small><b>'+esc(item.category_name||'—')+'</b></div><div><small>سعر القطعة</small><b>'+esc(Number(item.unit_price||0).toFixed(2))+' جنيه</b></div><div><small>الكمية</small><b>'+esc(item.quantity)+' قطعة</b></div></div></article>').join('')+'</section>':'';
     return '<article class="admin-order-card" data-order="'+order.id+'">'+
       '<div class="admin-order-top"><div><span class="order-code">'+esc(order.order_code)+'</span><h3>'+esc(order.customer_name)+'</h3><small>'+esc(order.phone)+' · '+esc(dateText(order.created_at))+'</small></div><span class="status-pill status-'+esc(order.status)+'">'+esc(statusLabels[order.status]||order.status)+'</span></div>'+
       fulfillmentMarkup+
       filesMarkup+
+      catalogMarkup+
       (order.notes?'<p class="order-customer-note"><b>ملاحظات عامة:</b> '+esc(order.notes)+'</p>':'')+
       '<div class="admin-order-controls"><label>تحديث الحالة<select class="next-status">'+options+'</select></label><label>السعر النهائي للطلب (جنيه)<input class="quoted-price" type="number" min="0" step="0.01" value="'+(order.quoted_price??'')+'" placeholder="اكتب الإجمالي بعد المراجعة"></label><label class="customer-message">رسالة تظهر للعميل<input class="status-note" maxlength="300" placeholder="مثال: طلبك جاهز للاستلام"></label><button class="btn save-status" type="button">حفظ التحديث</button></div>'+
       '<details class="order-history"><summary>سجل تغييرات الحالة ('+history.length+')</summary><ol>'+timeline+'</ol></details>'+

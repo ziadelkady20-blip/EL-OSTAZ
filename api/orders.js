@@ -34,19 +34,131 @@ function validateUploadedFile(file, blob) {
   return { pathname: file.pathname, type, size: Number(blob.size) };
 }
 
+function positiveId(value) {
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function catalogImageUrl(value) {
+  const raw = safeText(value, 1000);
+  if (!raw) return null;
+  let parsed;
+  try { parsed = new URL(raw); } catch { throw new Error('رابط صورة المنتج غير صحيح'); }
+  if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('رابط صورة المنتج يجب أن يبدأ بـ https:// أو http://');
+  return parsed.toString();
+}
+
+async function handleCatalogAdmin(req, res, sql) {
+  if (!requireAdmin(req, res)) return;
+  try {
+    if (req.method === 'GET') {
+      const [categories, products] = await Promise.all([
+        sql`SELECT id, name, active, created_at, updated_at FROM public.catalog_categories ORDER BY id`,
+        sql`SELECT p.id, p.category_id, c.name AS category_name, p.name, p.description, p.price, p.image_url, p.active, p.created_at, p.updated_at
+          FROM public.catalog_products p
+          INNER JOIN public.catalog_categories c ON c.id = p.category_id
+          ORDER BY p.created_at DESC, p.id DESC`,
+      ]);
+      return sendJson(res, 200, { categories, products });
+    }
+
+    const body = await readJson(req);
+    const type = safeText(body.type, 20);
+    if (req.method === 'PATCH') {
+      const id = positiveId(body.id);
+      if (!id || typeof body.active !== 'boolean' || !['category', 'product'].includes(type)) {
+        return sendJson(res, 400, { error: 'بيانات تحديث الحالة غير صحيحة' });
+      }
+      const rows = type === 'category'
+        ? await sql`UPDATE public.catalog_categories SET active = ${body.active}, updated_at = NOW() WHERE id = ${id} RETURNING id, name, active`
+        : await sql`UPDATE public.catalog_products SET active = ${body.active}, updated_at = NOW() WHERE id = ${id} RETURNING id, name, active`;
+      if (!rows.length) return sendJson(res, 404, { error: 'العنصر المطلوب غير موجود' });
+      return sendJson(res, 200, { ok: true, item: rows[0] });
+    }
+
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'طريقة الطلب غير مدعومة' });
+    if (type === 'category') {
+      const name = safeText(body.name, 120);
+      if (name.length < 2) return sendJson(res, 400, { error: 'اكتب اسم القسم (حرفان على الأقل)' });
+      const id = positiveId(body.id);
+      const rows = id
+        ? await sql`UPDATE public.catalog_categories SET name = ${name}, updated_at = NOW() WHERE id = ${id} RETURNING id, name, active`
+        : await sql`INSERT INTO public.catalog_categories (name, active) VALUES (${name}, TRUE) RETURNING id, name, active`;
+      if (!rows.length) return sendJson(res, 404, { error: 'القسم المطلوب غير موجود' });
+      return sendJson(res, id ? 200 : 201, { ok: true, item: rows[0] });
+    }
+
+    if (type === 'product') {
+      const id = positiveId(body.id);
+      const categoryId = positiveId(body.categoryId);
+      const name = safeText(body.name, 180);
+      const description = safeText(body.description, 1500);
+      const price = Number(body.price);
+      const photo = catalogImageUrl(body.imageUrl);
+      const active = typeof body.active === 'boolean' ? body.active : true;
+      if (!categoryId || name.length < 2 || !Number.isFinite(price) || price < 0 || price > 100000000) {
+        return sendJson(res, 400, { error: 'راجع القسم واسم المنتج والسعر' });
+      }
+      const category = await sql`SELECT id FROM public.catalog_categories WHERE id = ${categoryId} AND active = TRUE LIMIT 1`;
+      if (!category.length) return sendJson(res, 400, { error: 'اختر قسمًا متاحًا' });
+      const rows = id
+        ? await sql`UPDATE public.catalog_products
+            SET category_id = ${categoryId}, name = ${name}, description = ${description || null},
+                price = ${price}, image_url = ${photo}, active = ${active}, updated_at = NOW()
+            WHERE id = ${id}
+            RETURNING id, category_id, name, description, price, image_url, active`
+        : await sql`INSERT INTO public.catalog_products (category_id, name, description, price, image_url, active)
+            VALUES (${categoryId}, ${name}, ${description || null}, ${price}, ${photo}, ${active})
+            RETURNING id, category_id, name, description, price, image_url, active`;
+      if (!rows.length) return sendJson(res, 404, { error: 'المنتج المطلوب غير موجود' });
+      return sendJson(res, id ? 200 : 201, { ok: true, item: rows[0] });
+    }
+
+    return sendJson(res, 400, { error: 'نوع العنصر غير معروف' });
+  } catch (error) {
+    console.error('admin catalog error', error);
+    if (/duplicate key|unique constraint/i.test(error?.message || '')) {
+      return sendJson(res, 409, { error: 'يوجد قسم أو اسم مطابق بالفعل' });
+    }
+    return sendJson(res, 500, { error: error?.message || 'تعذر حفظ بيانات المتجر' });
+  }
+}
+
+async function handlePublicCatalog(res, sql) {
+  try {
+    const categories = await sql`SELECT id, name FROM public.catalog_categories WHERE active = TRUE ORDER BY id`;
+    const products = await sql`SELECT p.id, p.category_id, c.name AS category_name, p.name, p.description, p.price, p.image_url, p.active
+      FROM public.catalog_products p
+      INNER JOIN public.catalog_categories c ON c.id = p.category_id
+      WHERE c.active = TRUE
+      ORDER BY p.created_at DESC, p.id DESC`;
+    return sendJson(res, 200, { categories, products });
+  } catch (error) {
+    console.error('public catalog error', error);
+    return sendJson(res, 500, { error: 'تعذر تحميل منتجات المتجر حاليًا' });
+  }
+}
+
 function summaryValue(items, key, fallback = 'متعدد') {
   return items.every(item => item[key] === items[0][key]) ? items[0][key] : fallback;
 }
 
 export default async function handler(req, res) {
-  if (!allowMethods(req, res, ['GET', 'POST'])) return;
+  if (!allowMethods(req, res, ['GET', 'POST', 'PATCH'])) return;
   const uploadedForCleanup = [];
   let orderSaved = false;
   try {
     const sql = getDb();
+    const url = new URL(req.url, 'https://ostaz.local');
+    const catalogMode = url.searchParams.get('catalog');
+    if (req.method === 'GET' && catalogMode === 'public') return await handlePublicCatalog(res, sql);
+    if (catalogMode === 'admin' && (req.method === 'GET' || req.method === 'POST' || req.method === 'PATCH')) {
+      return await handleCatalogAdmin(req, res, sql);
+    }
+    if (req.method === 'PATCH') return sendJson(res, 400, { error: 'مسار التحديث غير صحيح' });
     if (req.method === 'GET') {
       if (!requireAdmin(req, res)) return;
-      const rows = await sql`SELECT id, order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_type, file_size, files, fulfillment_method, delivery_address, quoted_price, status, status_history, created_at, updated_at FROM public.print_orders ORDER BY created_at DESC LIMIT 300`;
+      const rows = await sql`SELECT id, order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_type, file_size, files, catalog_items, catalog_total, print_total, fulfillment_method, delivery_address, quoted_price, status, status_history, created_at, updated_at FROM public.print_orders ORDER BY created_at DESC LIMIT 300`;
       return sendJson(res, 200, { orders: rows });
     }
 
@@ -62,7 +174,7 @@ export default async function handler(req, res) {
     if (!customer || !/^\+?[0-9٠-٩\s()-]{8,20}$/.test(phone)) throw new Error('راجع الاسم ورقم الهاتف');
 
     // Accept the previous single-file payload as well, so older installed PWAs remain compatible.
-    const incoming = Array.isArray(body.items) ? body.items : [{
+    const incoming = Array.isArray(body.items) ? body.items : (body.file ? [{
       service: body.service,
       paper: body.paper,
       size: body.size,
@@ -71,8 +183,11 @@ export default async function handler(req, res) {
       notes: '',
       pageCount: body.pageCount,
       file: body.file,
-    }];
-    if (!incoming.length || incoming.length > MAX_FILES) throw new Error('يمكنك إضافة من ملف واحد إلى ٢٠ ملفًا في الطلب الواحد');
+    }] : []);
+    const requestedProducts = Array.isArray(body.products) ? body.products : [];
+    if (incoming.length > MAX_FILES) throw new Error('الحد الأقصى ٢٠ ملفًا في طلب الطباعة الواحد');
+    if (requestedProducts.length > 50) throw new Error('الحد الأقصى ٥٠ صنفًا مختلفًا في طلب المتجر');
+    if (!incoming.length && !requestedProducts.length) throw new Error('أضف ملف طباعة أو منتجًا واحدًا على الأقل');
 
     const items = [];
     for (let index = 0; index < incoming.length; index++) {
@@ -146,29 +261,61 @@ export default async function handler(req, res) {
       });
     }
 
+    const catalogItems = [];
+    for (let index = 0; index < requestedProducts.length; index++) {
+      const raw = requestedProducts[index] || {};
+      const productId = Number(raw.id);
+      const quantity = Number(raw.quantity);
+      if (!Number.isSafeInteger(productId) || productId < 1 || !Number.isInteger(quantity) || quantity < 1 || quantity > 500) {
+        throw new Error('راجع المنتج والكمية في السلة');
+      }
+      const productRows = await sql`SELECT p.id, p.category_id, c.name AS category_name, p.name, p.description, p.price, p.image_url, p.active, c.active AS category_active
+        FROM public.catalog_products p
+        INNER JOIN public.catalog_categories c ON c.id = p.category_id
+        WHERE p.id = ${productId} LIMIT 1`;
+      if (!productRows.length) throw new Error('أحد منتجات السلة لم يعد موجودًا');
+      const product = productRows[0];
+      if (!product.active || !product.category_active) throw new Error('المنتج «' + product.name + '» غير متاح حاليًا. حدّث المتجر قبل إرسال الطلب');
+      const unitPrice = Number(product.price);
+      const lineTotal = Number((unitPrice * quantity).toFixed(2));
+      catalogItems.push({
+        product_id: Number(product.id),
+        category_id: Number(product.category_id),
+        category_name: product.category_name,
+        name: product.name,
+        description: product.description,
+        image_url: product.image_url,
+        unit_price: unitPrice,
+        quantity,
+        line_total: lineTotal,
+      });
+    }
+
     const code = newOrderCode();
-    const first = items[0];
+    const first = items[0] || null;
     const bindingFee = items.some(item => item.finishing === 'تكعيب') ? 10 : 0;
     if (items.length) items[0].order_binding_fee = bindingFee;
-    const allPriced = items.every(item => item.quoted_price !== null);
-    const totalPrice = allPriced
-      ? Number((items.reduce((sum, item) => sum + item.quoted_price, 0) + bindingFee).toFixed(2))
-      : null;
+    const printSubtotal = Number((items.reduce((sum, item) => sum + Number(item.quoted_price || 0), 0) + bindingFee).toFixed(2));
+    const catalogTotal = Number(catalogItems.reduce((sum, item) => sum + item.line_total, 0).toFixed(2));
+    const totalPrice = Number((printSubtotal + catalogTotal).toFixed(2));
     const totalPages = items.reduce((sum, item) => sum + (item.page_count || 0), 0);
     const totalImages = items.reduce((sum, item) => sum + item.image_count, 0);
     const totalPrintedImages = items.reduce((sum, item) => sum + item.printed_image_count, 0);
-    const totalCopies = items.reduce((sum, item) => sum + item.copies, 0);
+    const totalCopies = items.reduce((sum, item) => sum + item.copies, 0) + catalogItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalSize = items.reduce((sum, item) => sum + item.file_size, 0);
-    const serviceSummary = items.length === 1 ? first.service_type : 'طلب متعدد الملفات (' + items.length + ' ملفات)';
-    const paperSummary = summaryValue(items, 'paper_type');
-    const sizeSummary = summaryValue(items, 'paper_size');
-    const finishSummary = summaryValue(items, 'finishing');
+    const serviceSummary = items.length
+      ? (items.length === 1 ? first.service_type : 'طلب متعدد الملفات (' + items.length + ' ملفات)')
+      : 'مشتريات المتجر';
+    const paperSummary = items.length ? summaryValue(items, 'paper_type') : '—';
+    const sizeSummary = items.length ? summaryValue(items, 'paper_size') : '—';
+    const finishSummary = items.length ? summaryValue(items, 'finishing') : '—';
     const filesJson = JSON.stringify(items);
+    const catalogJson = JSON.stringify(catalogItems);
     const history = JSON.stringify([{ status: 'new', at: new Date().toISOString(), message: 'تم استلام طلبك بنجاح' }]);
 
     const rows = await sql`INSERT INTO public.print_orders
-      (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, quoted_price, notes, file_name, file_path, file_type, file_size, files, fulfillment_method, delivery_address, status, status_history, created_at, updated_at)
-      VALUES (${code}, ${customer}, ${phone}, ${serviceSummary}, ${paperSummary}, ${sizeSummary}, ${finishSummary}, ${Math.min(500, totalCopies)}, ${Math.max(1, Math.min(1000, totalPages))}, ${totalPrice}, ${notes || null}, ${first.file_name}, ${first.file_path}, ${first.file_type}, ${totalSize}, ${filesJson}::jsonb, ${fulfillmentMethod}, ${deliveryAddress}, 'new', ${history}::jsonb, NOW(), NOW())
+      (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, quoted_price, notes, file_name, file_path, file_type, file_size, files, catalog_items, catalog_total, print_total, fulfillment_method, delivery_address, status, status_history, created_at, updated_at)
+      VALUES (${code}, ${customer}, ${phone}, ${serviceSummary}, ${paperSummary}, ${sizeSummary}, ${finishSummary}, ${Math.max(1, Math.min(500, totalCopies))}, ${Math.max(1, Math.min(1000, totalPages))}, ${totalPrice}, ${notes || null}, ${first?.file_name ?? null}, ${first?.file_path ?? null}, ${first?.file_type ?? null}, ${totalSize || null}, ${filesJson}::jsonb, ${catalogJson}::jsonb, ${catalogTotal}, ${printSubtotal}, ${fulfillmentMethod}, ${deliveryAddress}, 'new', ${history}::jsonb, NOW(), NOW())
       RETURNING id, order_code, status, page_count, quoted_price, fulfillment_method, delivery_address, created_at`;
     orderSaved = true;
 
@@ -185,8 +332,11 @@ export default async function handler(req, res) {
       copies: Math.min(500, totalCopies),
       page_count: Math.max(1, Math.min(1000, totalPages)),
       notes,
-      file_name: first.file_name,
+      file_name: first?.file_name ?? null,
       files: items,
+      catalog_items: catalogItems,
+      catalog_total: catalogTotal,
+      print_total: printSubtotal,
       file_count: items.length,
       total_images: totalImages,
       total_printed_images: totalPrintedImages,
@@ -205,7 +355,7 @@ export default async function handler(req, res) {
       // Keep the existing single WhatsApp attachment flow; the caption lists every file.
       whatsapp = await sendPrinterWhatsAppOrder({
         order: savedOrder,
-        file: { pathname: first.file_path, type: first.file_type, size: first.file_size, name: first.file_name },
+        file: first ? { pathname: first.file_path, type: first.file_type, size: first.file_size, name: first.file_name } : null,
       });
       if (!whatsapp.sent) console.warn('order WhatsApp notification not sent', { orderCode: code, reason: whatsapp.reason });
     } catch (whatsappError) {
@@ -235,7 +385,7 @@ export default async function handler(req, res) {
     }));
     return sendJson(res, 201, {
       ok: true,
-      order: { ...rows[0], file_count: items.length, total_images: totalImages, total_printed_images: totalPrintedImages, files: publicFiles, binding_fee: bindingFee },
+      order: { ...rows[0], file_count: items.length, total_images: totalImages, total_printed_images: totalPrintedImages, files: publicFiles, catalog_items: catalogItems, catalog_total: catalogTotal, print_total: printSubtotal, binding_fee: bindingFee },
       trackingUrl: '/track.html?code=' + code,
       whatsapp,
       push,
@@ -248,7 +398,7 @@ export default async function handler(req, res) {
     }
     console.error('orders api error', error);
     const message = error?.message || '';
-    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|اختيار عدد الصفحات|ملف واحد إلى ٢٠|اختر طريقة الاستلام|عنوان التوصيل/i.test(message) ? 400 : 500;
+    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|اختيار عدد الصفحات|ملف واحد إلى ٢٠|الحد الأقصى|اختر طريقة الاستلام|عنوان التوصيل|أضف ملف طباعة|منتج|السلة|غير متاح/i.test(message) ? 400 : 500;
     return sendJson(res, status, { error: status === 400 ? message : 'حدث خطأ أثناء حفظ الطلب. حاول مرة أخرى.' });
   }
 }
