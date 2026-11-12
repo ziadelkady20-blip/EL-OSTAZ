@@ -242,7 +242,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     if (!orderSaved && uploadedForCleanup.length) {
-      await Promise.all(uploadedForCleanup.map(file => del(file.pathname, { access: 'private' }).catch(() => null)));
+      await Promise.all(uploadedForCleanup
+        .filter(file => !file.pathname.startsWith('orders/share/'))
+        .map(file => del(file.pathname, { access: 'private' }).catch(() => null)));
     }
     console.error('orders api error', error);
     const message = error?.message || '';

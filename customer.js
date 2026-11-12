@@ -94,6 +94,40 @@ if(form){
   const items=[];
   let pdfjsPromise=null;
 
+  function openPendingSharesDatabase(){
+    return new Promise((resolve,reject)=>{
+      const request=indexedDB.open('ostaz-share-target-v1',1);
+      request.onupgradeneeded=()=>{
+        if(!request.result.objectStoreNames.contains('pending-shares')){
+          request.result.createObjectStore('pending-shares',{keyPath:'id'});
+        }
+      };
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error||new Error('تعذر فتح الملفات المستلمة'));
+    });
+  }
+  async function takePendingSharedFiles(){
+    const database=await openPendingSharesDatabase();
+    try{
+      return await new Promise((resolve,reject)=>{
+        const transaction=database.transaction('pending-shares','readwrite');
+        const store=transaction.objectStore('pending-shares');
+        const request=store.getAll();
+        let records=[];
+        request.onsuccess=()=>{
+          records=request.result||[];
+          records.forEach(record=>store.delete(record.id));
+        };
+        request.onerror=()=>reject(request.error||new Error('تعذر قراءة الملفات المستلمة'));
+        transaction.oncomplete=()=>resolve(records);
+        transaction.onerror=()=>reject(transaction.error||new Error('تعذر قراءة الملفات المستلمة'));
+        transaction.onabort=()=>reject(transaction.error||new Error('تم إلغاء قراءة الملفات'));
+      });
+    }finally{
+      database.close();
+    }
+  }
+
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function formatMoney(value){
     return new Intl.NumberFormat('ar-EG',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value)+' جنيه';
@@ -154,6 +188,7 @@ if(form){
     if(item.fileType!=='application/pdf')return 'صورة واحدة — تُحسب ورقة لكل نسخة';
     if(item.pageStatus==='reading')return 'جارٍ قراءة صفحات ملف PDF...';
     if(item.pageStatus==='error')return 'تعذرت قراءة الملف؛ أعد حفظه كـ PDF عادي';
+    if(item.pageStatus==='manual'&&!item.pageCount)return 'أدخل عدد صفحات PDF لحساب السعر';
     return item.pageCount+' صفحة';
   }
   function cardPriceText(item){
@@ -162,10 +197,14 @@ if(form){
       ?'تكلفة هذا الملف: '+formatMoney(estimate.price)+' · '+estimate.totalSheets+' ورقة × '+formatMoney(estimate.pricePerSheet)
       :'تكلفة الصورة: '+formatMoney(estimate.price)+' · صورة واحدة × '+item.copies+' نسخة';
     if(item.fileType==='application/pdf'&&item.pageStatus==='reading')return 'جارٍ حساب التكلفة...';
+    if(item.fileType==='application/pdf'&&item.pageStatus==='manual'&&!item.pageCount)return 'أدخل عدد صفحات PDF لحساب التكلفة';
     return 'السعر يحتاج مراجعة المطبعة';
   }
   function fileCard(item,index){
     const special=item.service==='شهادات'||item.service==='صور شخصية';
+    const manualPageCount=item.preuploadedFile&&item.fileType==='application/pdf'
+      ?'<label>عدد صفحات ملف PDF<input data-field="pageCount" type="number" min="1" max="10000" step="1" value="'+esc(item.pageCount||'')+'" placeholder="اكتب عدد الصفحات" required><small>أدخل عدد صفحات الملف حتى يظهر الحساب الصحيح.</small></label>'
+      :'';
     return '<article class="file-item-card" data-item-id="'+esc(item.id)+'">'+
       '<div class="file-item-head"><div class="file-item-title"><span class="file-item-number">'+(index+1)+'</span><div><b>'+esc(item.file.name)+'</b><small>'+esc((item.file.size/1024/1024).toFixed(2))+' MB · '+esc(pageStatus(item))+'</small></div></div><button type="button" class="file-remove" data-remove-item="'+esc(item.id)+'">حذف الملف ×</button></div>'+
       '<div class="file-item-grid">'+
@@ -174,6 +213,7 @@ if(form){
         '<label>المقاس<select data-field="size">'+options(SIZES,item.size)+'</select></label>'+
         '<label>التقفيل<select data-field="finish">'+options(FINISHES,item.finish)+'</select></label>'+
         '<label data-pages-per-sheet-field '+(special||item.fileType!=='application/pdf'?'hidden':'')+'>عدد الصفحات في الورقة الواحدة<select data-field="pagesPerSheet">'+PAGE_LAYOUTS.map(value=>'<option value="'+value+'" '+(value===Number(item.pagesPerSheet||1)?'selected':'')+'>'+new Intl.NumberFormat('ar-EG').format(value)+(value===1?' صفحة':' صفحات')+'</option>').join('')+'</select><small>في الطباعة وجهين، هذا العدد يكون على كل وجه من الورقة.</small></label>'+
+        manualPageCount+
         '<label>عدد النسخ<input data-field="copies" type="number" min="1" max="500" step="1" value="'+esc(item.copies)+'" required></label>'+
       '</div>'+
       '<label class="file-item-notes">ملاحظات تخص هذا الملف<textarea data-field="notes" rows="2" placeholder="مثال: الطباعة من صفحة ١ إلى ١٠ فقط">'+esc(item.notes||'')+'</textarea></label>'+
@@ -266,56 +306,98 @@ if(form){
   }));
   service.addEventListener('change',syncServices);
 
-  fileInput.addEventListener('change',async()=>{
-    const selected=Array.from(fileInput.files||[]);
-    fileInput.value='';
+  async function addSelectedFiles(selected,{fromShare=false}={}){
     if(!selected.length)return;
     let added=0;
     let limitReached=false;
     for(const file of selected){
-      if(items.length>=MAX_FILES){
-        limitReached=true;
-        break;
-      }
+      if(items.length>=MAX_FILES){limitReached=true;break;}
       const type=fileTypeOf(file);
       if(!type){fileHelp.textContent='الملف '+file.name+' غير مدعوم. ارفع PDF أو JPG أو PNG.';continue;}
       if(file.size<1||file.size>MAX_FILE){fileHelp.textContent='حجم الملف '+file.name+' غير صالح أو أكبر من الحد المسموح.';continue;}
       const item={
-        id:crypto.randomUUID(),
-        file,
-        fileType:type,
+        id:crypto.randomUUID(),file,fileType:type,
         service:(type!=='application/pdf'&&isDuplexService(service.value))?oneSidedService(service.value):(service.value||SERVICES[0]),
         paper:(service.value==='شهادات'||service.value==='صور شخصية')?'ورق جلوسي':'ورق عادي',
-        size:SIZES[0],
-        finish:FINISHES[0],
-        copies:1,
-        pagesPerSheet:1,
-        pageCount:null,
-        pageStatus:type==='application/pdf'?'reading':'image',
-        pageReadStarted:false,
-        notes:'',
-        uploadStatus:'جاهز للرفع مع الطلب'
+        size:SIZES[0],finish:FINISHES[0],copies:1,pagesPerSheet:1,pageCount:null,
+        pageStatus:type==='application/pdf'?'reading':'image',pageReadStarted:false,notes:'',
+        uploadStatus:fromShare?'وصل من المشاركة — جاهز للإعداد':'جاهز للرفع مع الطلب'
       };
-      items.push(item);
-      added++;
+      items.push(item);added++;
     }
     renderFiles();
     fileHelp.textContent=limitReached
       ?'الحد الأقصى '+MAX_FILES+' ملفًا في الطلب الواحد. أُضيفت الملفات المتاحة فقط.'
-      :added?'تمت إضافة '+added+' ملف. يمكنك إضافة ملفات أخرى أو تعديل إعدادات كل ملف على حدة.'
+      :added?(fromShare?'تم استلام '+added+' ملف من المشاركة. اختر إعدادات كل ملف.':'تمت إضافة '+added+' ملف. يمكنك إضافة ملفات أخرى أو تعديل إعدادات كل ملف على حدة.')
       :'لم تتم إضافة ملفات جديدة.';
     for(const item of items.filter(value=>value.pageStatus==='reading'&&!value.pageCount&&!value.pageReadStarted)){
       item.pageReadStarted=true;
-      try{
-        item.pageCount=await readPdfPageCount(item.file);
-        item.pageStatus='ready';
-      }catch(error){
-        item.pageStatus='error';
-        item.pageError=error.message||'تعذرت قراءة ملف PDF.';
-      }
+      try{item.pageCount=await readPdfPageCount(item.file);item.pageStatus='ready';}
+      catch(error){item.pageStatus='error';item.pageError=error.message||'تعذرت قراءة ملف PDF.';}
       renderFiles();
     }
+  }
+  fileInput.addEventListener('change',()=>{
+    const selected=Array.from(fileInput.files||[]);
+    fileInput.value='';
+    void addSelectedFiles(selected);
   });
+  async function consumeAndroidShare(){
+    const params=new URLSearchParams(location.search);
+    if(params.get('shared')!=='1'&&!params.has('share-error'))return;
+    if(params.get('shared')==='1'){
+      try{
+        const records=await takePendingSharedFiles();
+        const files=records.flatMap(record=>record.files||[]);
+        const rejected=records.reduce((sum,record)=>sum+Number(record.rejectedCount||0),0);
+        const overflow=records.reduce((sum,record)=>sum+Number(record.overflowCount||0),0);
+        await addSelectedFiles(files,{fromShare:true});
+        if(rejected||overflow)fileHelp.textContent+=' تم تجاهل '+(rejected+overflow)+' ملف غير مدعوم أو زائد عن الحد.';
+      }catch(error){fileHelp.textContent='تعذر استيراد الملفات المشتركة. افتح الموقع وحاول المشاركة مرة أخرى.';}
+    }else{
+      fileHelp.textContent=params.get('share-error')==='no-files'
+        ?'لم نعثر على PDF أو JPG أو PNG في المشاركة.'
+        :'تعذر استقبال الملف من قائمة المشاركة. حاول مرة أخرى.';
+    }
+    const cleanUrl=new URL(location.href);
+    cleanUrl.searchParams.delete('shared');cleanUrl.searchParams.delete('share-error');
+    history.replaceState(null,'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
+  }
+  async function consumeIosShare(){
+    const fragment=new URLSearchParams(location.hash.replace(/^#/,''));
+    const token=fragment.get('ostaz-share');
+    if(!token)return;
+    history.replaceState(null,'',location.pathname+location.search);
+    fileHelp.textContent='جارٍ استيراد الملف الذي أرسلته من قائمة المشاركة...';
+    try{
+      const response=await fetch('/api/share-import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error||'تعذر استيراد الملف');
+      let added=0;
+      for(const file of result.files||[]){
+        if(items.length>=MAX_FILES)break;
+        const type=fileTypeOf({name:file.name,type:file.type});
+        if(!type||!file.pathname||!Number.isSafeInteger(Number(file.size))||Number(file.size)<1)continue;
+        const pageCount=Number.isInteger(file.pageCount)&&file.pageCount>0?file.pageCount:null;
+        const special=service.value==='شهادات'||service.value==='صور شخصية';
+        const fileObject={name:file.name,size:Number(file.size),type};
+        items.push({
+          id:crypto.randomUUID(),file:fileObject,
+          preuploadedFile:{pathname:file.pathname,name:file.name,type,size:Number(file.size)},
+          fileType:type,
+          service:(type!=='application/pdf'&&isDuplexService(service.value))?oneSidedService(service.value):(service.value||SERVICES[0]),
+          paper:special?'ورق جلوسي':'ورق عادي',size:SIZES[0],finish:FINISHES[0],copies:1,pagesPerSheet:1,
+          pageCount,pageStatus:type==='application/pdf'?(pageCount?'ready':'manual'):'image',
+          pageReadStarted:false,notes:'',uploadStatus:'تم استيراده من واتساب — جاهز للإعداد'
+        });
+        added++;
+      }
+      renderFiles();
+      fileHelp.textContent=added
+        ?'تم استيراد '+added+' ملف من واتساب. راجع عدد صفحات PDF إذا طُلب منك، ثم اختر إعدادات الطباعة.'
+        :'لم تتم إضافة ملفات جديدة؛ راجع الحد الأقصى للملفات في الطلب.';
+    }catch(error){fileHelp.textContent=error.message||'تعذر استيراد الملف. أعد مشاركته من واتساب.';}
+  }
 
   filesHost.addEventListener('change',event=>{
     const control=event.target.closest('[data-field]');
@@ -324,7 +406,8 @@ if(form){
     const item=items.find(value=>value.id===card?.dataset.itemId);
     if(!item)return;
     const field=control.dataset.field;
-    item[field]=field==='copies'?control.value:control.value;
+    item[field]=field==='pageCount'?(control.value===''?null:Number(control.value)):control.value;
+    if(field==='pageCount')item.pageStatus=item.pageCount?'ready':'manual';
     if(field==='service'){
       delete item.serviceBeforeGlossy;
       const special=item.service==='شهادات'||item.service==='صور شخصية';
@@ -343,7 +426,7 @@ if(form){
       }
       if(item.service==='شهادات'||item.service==='صور شخصية')item.paper='ورق جلوسي';
     }
-    if(field==='service'||field==='paper')renderFiles();
+    if(field==='service'||field==='paper'||field==='pageCount')renderFiles();
     else renderEstimate();
   });
   filesHost.addEventListener('input',event=>{
@@ -352,7 +435,9 @@ if(form){
     const card=control.closest('[data-item-id]');
     const item=items.find(value=>value.id===card?.dataset.itemId);
     if(!item)return;
-    item[control.dataset.field]=control.value;
+    const field=control.dataset.field;
+    item[field]=field==='pageCount'?(control.value===''?null:Number(control.value)):control.value;
+    if(field==='pageCount')item.pageStatus=item.pageCount?'ready':'manual';
     renderEstimate();
   });
   filesHost.addEventListener('click',event=>{
@@ -417,21 +502,28 @@ if(form){
         const card=filesHost.querySelector('[data-item-id="'+item.id+'"]');
         const status=card?.querySelector('.file-upload-status');
         if(status)status.textContent='جارٍ رفع الملف '+(index+1)+' من '+items.length+'...';
-        const uploadFile=item.file.type===item.fileType?item.file:new File([item.file],item.file.name,{type:item.fileType});
-        const pathname='orders/'+crypto.randomUUID()+'/'+item.file.name.replace(/[\\/]/g,'_');
-        const blob=await upload(pathname,uploadFile,{
-          access:'private',
-          handleUploadUrl:'/api/uploads',
-          multipart:true,
-          clientPayload:JSON.stringify({contentType:item.fileType,size:item.file.size}),
-          onUploadProgress(progress){
-            const percent=Math.round(progress.percentage);
-            fileHelp.textContent='رفع الملف '+(index+1)+' من '+items.length+': '+percent+'%';
-            submit.textContent='رفع '+(index+1)+'/'+items.length+' — '+percent+'%';
-            if(status)status.textContent='جارٍ الرفع: '+percent+'%';
-          }
-        });
-        item.uploadStatus='اكتمل الرفع';
+        let blob;
+        if(item.preuploadedFile){
+          blob=item.preuploadedFile;
+          item.uploadStatus='تم استيراده من المشاركة';
+          if(status)status.textContent='تم استيراده مسبقًا';
+        }else{
+          const uploadFile=item.file.type===item.fileType?item.file:new File([item.file],item.file.name,{type:item.fileType});
+          const pathname='orders/'+crypto.randomUUID()+'/'+item.file.name.replace(/[\\/]/g,'_');
+          blob=await upload(pathname,uploadFile,{
+            access:'private',
+            handleUploadUrl:'/api/uploads',
+            multipart:true,
+            clientPayload:JSON.stringify({contentType:item.fileType,size:item.file.size}),
+            onUploadProgress(progress){
+              const percent=Math.round(progress.percentage);
+              fileHelp.textContent='رفع الملف '+(index+1)+' من '+items.length+': '+percent+'%';
+              submit.textContent='رفع '+(index+1)+'/'+items.length+' — '+percent+'%';
+              if(status)status.textContent='جارٍ الرفع: '+percent+'%';
+            }
+          });
+          item.uploadStatus='اكتمل الرفع';
+        }
         if(status)status.textContent='اكتمل الرفع';
         uploadedItems.push({
           service:item.service,
@@ -494,4 +586,6 @@ if(form){
   syncServices();
   syncFulfillmentFields();
   renderFiles();
+  void consumeAndroidShare();
+  void consumeIosShare();
 }

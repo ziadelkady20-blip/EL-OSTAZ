@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#293991">
+<title>الإرسال من واتساب إلى الأستاذ</title>
+<link rel="icon" href="/assets/ostaz-customer-icon.svg">
+<link rel="stylesheet" href="/style.css">
+<style>
+body{background:var(--page)}.share-guide-wrap{width:min(960px,92%);margin:48px auto 80px}
+.share-guide-hero{background:linear-gradient(135deg,#293991,#17245f);color:#fff;border-radius:24px;padding:34px;box-shadow:var(--shadow-strong)}
+.share-guide-hero h1{font-size:clamp(26px,4vw,40px);margin:8px 0 10px}.share-guide-hero p{margin:0;color:#e1e7ff;line-height:2}
+.share-guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:22px}
+.share-guide-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:var(--shadow)}
+.share-guide-card h2{margin:0 0 8px;color:var(--brand-dark);font-size:23px}.share-guide-card p,.share-guide-card li{color:var(--muted);line-height:2}
+.share-guide-card ol{padding-right:22px;margin:12px 0}.share-guide-card code{direction:ltr;unicode-bidi:embed;display:inline-block;background:#f0f3ff;border-radius:7px;padding:2px 6px;color:#26398e;font-size:12px;word-break:break-all}
+.share-guide-note{background:#fff9e9;border:1px solid #f2dfad;border-radius:14px;padding:14px;color:#6e561c;line-height:1.9;margin-top:14px}
+.share-guide-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.share-guide-actions a{display:inline-flex;align-items:center;justify-content:center;padding:13px 20px;border-radius:12px;font-weight:800}
+.share-primary{background:var(--brand);color:#fff}.share-secondary{background:#fff;color:var(--brand);border:1px solid var(--line)}
+@media(max-width:720px){.share-guide-wrap{margin:24px auto 50px}.share-guide-hero{padding:24px}.share-guide-grid{grid-template-columns:1fr}.share-guide-card{padding:20px}}
+</style>
+</head>
+<body>
+<header class="top"><a class="brand" href="/index.html" aria-label="الأستاذ"><img class="brand-logo" src="/assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ"></a><nav><a href="/index.html">واجهة العميل</a><a href="/track.html">تتبع الطلب</a></nav><a class="btn" href="/index.html#order">اطلب الآن ←</a></header>
+<main class="share-guide-wrap">
+<section class="share-guide-hero"><span class="eyebrow">مشاركة أسرع وأسهل</span><h1>أرسل ملفاتك من واتساب إلى الأستاذ مباشرة</h1><p>بدل ما تحفظ الملف وتدور عليه من جديد، شاركه إلى الأستاذ، وبعدها اختار إعدادات الطباعة وشاهد الحساب قبل إرسال الطلب.</p></section>
+<div class="share-guide-grid">
+<section class="share-guide-card"><h2>Android</h2><p>على أندرويد، يظهر الأستاذ ضمن قائمة المشاركة بعد تثبيته كتطبيق على الهاتف.</p><ol>
+<li>افتح موقع الأستاذ من <b>Google Chrome</b>.</li><li>اضغط «تثبيت التطبيق» أو من قائمة ⋮ اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</li><li>افتح واتساب، ثم افتح ملف PDF أو الصورة واضغط «مشاركة».</li><li>اختر «الأستاذ» من التطبيقات المقترحة.</li><li>ستجد الملف داخل نموذج الطلب، جاهزًا لاختيار نوع الطباعة والورق والمقاس والتقفيل.</li>
+</ol><div class="share-guide-note">لو لم يظهر الأستاذ في قائمة المشاركة، افتح التطبيق المثبّت مرة واحدة، وتأكد أنك ثبّتّه من Chrome وليس مجرد إشارة مرجعية.</div></section>
+<section class="share-guide-card"><h2>iPhone</h2><p>على الآيفون نستخدم اختصار Apple Shortcuts باسم «إرسال إلى الأستاذ»؛ لأن الموقع المثبّت لا يظهر كوجهة مشاركة ملفات مثل تطبيقات iOS.</p><ol>
+<li>افتح تطبيق <b>الاختصارات (Shortcuts)</b> واضغط +، وسمِّ الاختصار «إرسال إلى الأستاذ».</li><li>من تفاصيل الاختصار فعّل <b>إظهار في ورقة المشاركة</b>، واجعل أنواع الإدخال ملفات وPDF وصورًا.</li><li>أضف إجراء <b>الحصول على تفاصيل الملفات (Get Details of Files)</b>، واستخرج الاسم وامتداد الملف وحجمه من «مدخل الاختصار».</li><li>أضف <b>الحصول على محتويات URL (Get Contents of URL)</b>، واجعل الطريقة POST والرابط <code>https://el-ostaz-ochre.vercel.app/api/share-token</code>، ونوع الجسم JSON بالمفاتيح <code>fileName</code> و<code>extension</code> و<code>size</code>.</li><li>من نتيجة الإجراء استخرج القيمتين <code>uploadUrl</code> و<code>headers</code>.</li><li>أضف إجراء Get Contents of URL ثانيًا: الرابط هو <code>uploadUrl</code>، والطريقة PUT، والجسم File وهو «مدخل الاختصار»، وHeaders هي قيمة <code>headers</code>.</li><li>من نتيجة الرفع استخرج <code>pathname</code>. أضف Get Contents of URL ثالثًا بطريقة POST إلى <code>https://el-ostaz-ochre.vercel.app/api/share-prepare</code>، وأرسل JSON بالمفاتيح <code>pathname</code> و<code>name</code> و<code>type</code> و<code>size</code> باستخدام القيم التي حصلت عليها في الخطوات السابقة.</li><li>استخرج <code>url</code> من النتيجة الأخيرة، ثم أضف إجراء <b>فتح URL (Open URLs)</b>.</li><li>بعد حفظ الاختصار، افتح ملفًا من واتساب واضغط مشاركة ثم اختر «إرسال إلى الأستاذ».</li>
+</ol><div class="share-guide-note">في النسخة الأولى، شارك ملفًا واحدًا في كل مرة من الآيفون. عند استيراد PDF سيطلب منك الموقع إدخال عدد صفحاته إذا لم تكن متاحة تلقائيًا. رابط الاستيراد مؤقت لمدة ٢٠ دقيقة.</div></section>
+</div>
+<div class="share-guide-actions"><a class="share-primary" href="/index.html#order">ابدأ طلب الطباعة</a><a class="share-secondary" href="/index.html">العودة للرئيسية</a></div>
+</main>
+</body>
+</html>
