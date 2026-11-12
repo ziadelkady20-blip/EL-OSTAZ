@@ -518,7 +518,7 @@ if(form){
   async function loadStoreCatalog(){
     if(!storeProductsHost)return;
     try{
-      const response=await fetch('/api/catalog',{cache:'no-store'});
+      const response=await fetch('/api/orders?catalog=public',{cache:'no-store'});
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||'تعذر تحميل المتجر');
       catalog={categories:data.categories||[],products:data.products||[]};
