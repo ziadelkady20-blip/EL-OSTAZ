@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     const sql = getDb();
     if (req.method === 'GET') {
       if (!requireAdmin(req, res)) return;
-      const rows = await sql`SELECT id, order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_type, file_size, files, fulfillment_method, delivery_address, quoted_price, status, status_history, created_at, updated_at FROM public.print_orders ORDER BY created_at DESC LIMIT 300`;
+      const rows = await sql`SELECT id, order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, notes, file_name, file_type, file_size, files, catalog_items, catalog_total, print_total, fulfillment_method, delivery_address, quoted_price, status, status_history, created_at, updated_at FROM public.print_orders ORDER BY created_at DESC LIMIT 300`;
       return sendJson(res, 200, { orders: rows });
     }
 
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     if (!customer || !/^\+?[0-9٠-٩\s()-]{8,20}$/.test(phone)) throw new Error('راجع الاسم ورقم الهاتف');
 
     // Accept the previous single-file payload as well, so older installed PWAs remain compatible.
-    const incoming = Array.isArray(body.items) ? body.items : [{
+    const incoming = Array.isArray(body.items) ? body.items : (body.file ? [{
       service: body.service,
       paper: body.paper,
       size: body.size,
@@ -71,8 +71,11 @@ export default async function handler(req, res) {
       notes: '',
       pageCount: body.pageCount,
       file: body.file,
-    }];
-    if (!incoming.length || incoming.length > MAX_FILES) throw new Error('يمكنك إضافة من ملف واحد إلى ٢٠ ملفًا في الطلب الواحد');
+    }] : []);
+    const requestedProducts = Array.isArray(body.products) ? body.products : [];
+    if (incoming.length > MAX_FILES) throw new Error('الحد الأقصى ٢٠ ملفًا في طلب الطباعة الواحد');
+    if (requestedProducts.length > 50) throw new Error('الحد الأقصى ٥٠ صنفًا مختلفًا في طلب المتجر');
+    if (!incoming.length && !requestedProducts.length) throw new Error('أضف ملف طباعة أو منتجًا واحدًا على الأقل');
 
     const items = [];
     for (let index = 0; index < incoming.length; index++) {
@@ -146,29 +149,60 @@ export default async function handler(req, res) {
       });
     }
 
+    const catalogItems = [];
+    for (let index = 0; index < requestedProducts.length; index++) {
+      const raw = requestedProducts[index] || {};
+      const productId = Number.parseInt(raw.id, 10);
+      const quantity = Number.parseInt(raw.quantity, 10);
+      if (!Number.isSafeInteger(productId) || productId < 1 || !Number.isInteger(quantity) || quantity < 1 || quantity > 500) {
+        throw new Error('راجع المنتج والكمية في السلة');
+      }
+      const productRows = await sql`SELECT p.id, p.category_id, p.name, p.description, p.price, p.image_url, p.active, c.active AS category_active
+        FROM public.catalog_products p
+        INNER JOIN public.catalog_categories c ON c.id = p.category_id
+        WHERE p.id = ${productId} LIMIT 1`;
+      if (!productRows.length) throw new Error('أحد منتجات السلة لم يعد موجودًا');
+      const product = productRows[0];
+      if (!product.active || !product.category_active) throw new Error('المنتج «' + product.name + '» غير متاح حاليًا. حدّث المتجر قبل إرسال الطلب');
+      const unitPrice = Number(product.price);
+      const lineTotal = Number((unitPrice * quantity).toFixed(2));
+      catalogItems.push({
+        product_id: Number(product.id),
+        category_id: Number(product.category_id),
+        name: product.name,
+        description: product.description,
+        image_url: product.image_url,
+        unit_price: unitPrice,
+        quantity,
+        line_total: lineTotal,
+      });
+    }
+
     const code = newOrderCode();
-    const first = items[0];
+    const first = items[0] || null;
     const bindingFee = items.some(item => item.finishing === 'تكعيب') ? 10 : 0;
     if (items.length) items[0].order_binding_fee = bindingFee;
-    const allPriced = items.every(item => item.quoted_price !== null);
-    const totalPrice = allPriced
-      ? Number((items.reduce((sum, item) => sum + item.quoted_price, 0) + bindingFee).toFixed(2))
-      : null;
+    const printSubtotal = Number((items.reduce((sum, item) => sum + Number(item.quoted_price || 0), 0) + bindingFee).toFixed(2));
+    const catalogTotal = Number(catalogItems.reduce((sum, item) => sum + item.line_total, 0).toFixed(2));
+    const totalPrice = Number((printSubtotal + catalogTotal).toFixed(2));
     const totalPages = items.reduce((sum, item) => sum + (item.page_count || 0), 0);
     const totalImages = items.reduce((sum, item) => sum + item.image_count, 0);
     const totalPrintedImages = items.reduce((sum, item) => sum + item.printed_image_count, 0);
-    const totalCopies = items.reduce((sum, item) => sum + item.copies, 0);
+    const totalCopies = items.reduce((sum, item) => sum + item.copies, 0) + catalogItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalSize = items.reduce((sum, item) => sum + item.file_size, 0);
-    const serviceSummary = items.length === 1 ? first.service_type : 'طلب متعدد الملفات (' + items.length + ' ملفات)';
-    const paperSummary = summaryValue(items, 'paper_type');
-    const sizeSummary = summaryValue(items, 'paper_size');
-    const finishSummary = summaryValue(items, 'finishing');
+    const serviceSummary = items.length
+      ? (items.length === 1 ? first.service_type : 'طلب متعدد الملفات (' + items.length + ' ملفات)')
+      : 'مشتريات المتجر';
+    const paperSummary = items.length ? summaryValue(items, 'paper_type') : '—';
+    const sizeSummary = items.length ? summaryValue(items, 'paper_size') : '—';
+    const finishSummary = items.length ? summaryValue(items, 'finishing') : '—';
     const filesJson = JSON.stringify(items);
+    const catalogJson = JSON.stringify(catalogItems);
     const history = JSON.stringify([{ status: 'new', at: new Date().toISOString(), message: 'تم استلام طلبك بنجاح' }]);
 
     const rows = await sql`INSERT INTO public.print_orders
-      (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, quoted_price, notes, file_name, file_path, file_type, file_size, files, fulfillment_method, delivery_address, status, status_history, created_at, updated_at)
-      VALUES (${code}, ${customer}, ${phone}, ${serviceSummary}, ${paperSummary}, ${sizeSummary}, ${finishSummary}, ${Math.min(500, totalCopies)}, ${Math.max(1, Math.min(1000, totalPages))}, ${totalPrice}, ${notes || null}, ${first.file_name}, ${first.file_path}, ${first.file_type}, ${totalSize}, ${filesJson}::jsonb, ${fulfillmentMethod}, ${deliveryAddress}, 'new', ${history}::jsonb, NOW(), NOW())
+      (order_code, customer_name, phone, service_type, paper_type, paper_size, finishing, copies, page_count, quoted_price, notes, file_name, file_path, file_type, file_size, files, catalog_items, catalog_total, print_total, fulfillment_method, delivery_address, status, status_history, created_at, updated_at)
+      VALUES (${code}, ${customer}, ${phone}, ${serviceSummary}, ${paperSummary}, ${sizeSummary}, ${finishSummary}, ${Math.max(1, Math.min(500, totalCopies))}, ${Math.max(1, Math.min(1000, totalPages))}, ${totalPrice}, ${notes || null}, ${first?.file_name ?? null}, ${first?.file_path ?? null}, ${first?.file_type ?? null}, ${totalSize || null}, ${filesJson}::jsonb, ${catalogJson}::jsonb, ${catalogTotal}, ${printSubtotal}, ${fulfillmentMethod}, ${deliveryAddress}, 'new', ${history}::jsonb, NOW(), NOW())
       RETURNING id, order_code, status, page_count, quoted_price, fulfillment_method, delivery_address, created_at`;
     orderSaved = true;
 
@@ -185,8 +219,11 @@ export default async function handler(req, res) {
       copies: Math.min(500, totalCopies),
       page_count: Math.max(1, Math.min(1000, totalPages)),
       notes,
-      file_name: first.file_name,
+      file_name: first?.file_name ?? null,
       files: items,
+      catalog_items: catalogItems,
+      catalog_total: catalogTotal,
+      print_total: printSubtotal,
       file_count: items.length,
       total_images: totalImages,
       total_printed_images: totalPrintedImages,
@@ -205,7 +242,7 @@ export default async function handler(req, res) {
       // Keep the existing single WhatsApp attachment flow; the caption lists every file.
       whatsapp = await sendPrinterWhatsAppOrder({
         order: savedOrder,
-        file: { pathname: first.file_path, type: first.file_type, size: first.file_size, name: first.file_name },
+        file: first ? { pathname: first.file_path, type: first.file_type, size: first.file_size, name: first.file_name } : null,
       });
       if (!whatsapp.sent) console.warn('order WhatsApp notification not sent', { orderCode: code, reason: whatsapp.reason });
     } catch (whatsappError) {
@@ -235,7 +272,7 @@ export default async function handler(req, res) {
     }));
     return sendJson(res, 201, {
       ok: true,
-      order: { ...rows[0], file_count: items.length, total_images: totalImages, total_printed_images: totalPrintedImages, files: publicFiles, binding_fee: bindingFee },
+      order: { ...rows[0], file_count: items.length, total_images: totalImages, total_printed_images: totalPrintedImages, files: publicFiles, catalog_items: catalogItems, catalog_total: catalogTotal, print_total: printSubtotal, binding_fee: bindingFee },
       trackingUrl: '/track.html?code=' + code,
       whatsapp,
       push,
