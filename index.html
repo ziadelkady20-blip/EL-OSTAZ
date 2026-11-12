@@ -28,7 +28,8 @@
       <img class="brand-logo" src="assets/ostaz-logo.svg?v=2" alt="شعار الأستاذ">
     </a>
     <nav aria-label="القائمة الرئيسية">
-      <a href="#services">الخدمات</a>
+      <a href="#services">الطباعة</a>
+      <a href="#store">المتجر</a>
       <a href="#how">طريقة الطلب</a>
       <a href="track.html">تتبع طلبك</a>
     </nav>
@@ -151,6 +152,33 @@
             <div class="price-estimate-total"><span id="priceEstimateTotalLabel">الإجمالي المبدئي</span><strong id="priceEstimateTotal">—</strong></div>
             <small class="price-estimate-note" id="priceEstimateNote">سعر الورقة العادية ٠٫٧٥ جنيه (٧٥ قرش)، والجلوسي ٥ جنيه، ورسوم التكعيب ١٠ جنيه على الطلب مرة واحدة.</small>
           </div>
+          <section id="store" class="store-section wide" aria-labelledby="storeTitle">
+            <div class="store-heading">
+              <span class="eyebrow">متجر الأستاذ</span>
+              <h3 id="storeTitle">الأدوات المدرسية ومستلزماتك</h3>
+              <p>اختار منتجاتك وأضفها إلى نفس سلة طلب الطباعة.</p>
+            </div>
+            <div id="storeCategories" class="store-categories" aria-label="أقسام المتجر">
+              <button type="button" class="store-category is-active" data-category="all">كل المنتجات</button>
+            </div>
+            <div id="storeProducts" class="store-products" aria-live="polite">
+              <div class="store-empty">جارٍ تحميل منتجات المتجر...</div>
+            </div>
+            <div class="store-cart">
+              <div class="store-cart-head">
+                <div><b>سلة الطلب الموحدة</b><small id="storeCartCount">لا توجد منتجات مضافة</small></div>
+                <strong id="storeCartSubtotal">٠٫٠٠ جنيه</strong>
+              </div>
+              <div id="storeCartItems" class="store-cart-items">
+                <p class="store-empty">لم تضف منتجات من المتجر بعد. يمكنك إرسال طلب طباعة فقط أو الجمع بين الاثنين.</p>
+              </div>
+              <div class="store-cart-total">
+                <span>إجمالي المنتجات</span>
+                <b id="storeCartTotal">٠٫٠٠ جنيه</b>
+              </div>
+              <small class="store-cart-note">سيتم جمع قيمة المنتجات مع حساب الطباعة في رقم طلب واحد. المنتجات غير المتاحة تظهر للعرض فقط ولا يمكن إضافتها للسلة.</small>
+            </div>
+          </section>
           <label class="wide">طريقة الاستلام
             <select name="fulfillmentMethod" id="fulfillmentMethod" required>
               <option value="pickup">استلام من الفرع</option>
