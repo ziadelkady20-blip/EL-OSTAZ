@@ -30,8 +30,8 @@
 - `POST /api/orders/status`: تحديث حالة الطلب والسعر ورسالة العميل (للمدير فقط).
 - `GET /api/orders/file?id=...`: تنزيل ملف خاص (للمدير فقط).
 - `GET /api/track?code=...`: تتبع حالة طلب الطباعة ومشتريات المتجر عبر رقم الطلب.
-- `GET /api/catalog`: عرض الأقسام والمنتجات في المتجر.
-- `/api/admin/catalog`: إدارة الأقسام والمنتجات (للمدير فقط).
+- `GET /api/orders?catalog=public`: عرض الأقسام والمنتجات في المتجر.
+- `GET/POST/PATCH /api/orders?catalog=admin`: إدارة الأقسام والمنتجات (للمدير فقط).
 - `POST /api/admin/login`, `GET /api/admin/me`, `POST /api/admin/logout`: جلسة الإدارة.
 - `GET /api/health`: فحص اتصال قاعدة البيانات.
 
