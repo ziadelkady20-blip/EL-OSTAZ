@@ -295,9 +295,11 @@ export default async function handler(req, res) {
     const first = items[0] || null;
     const bindingFee = items.some(item => item.finishing === 'تكعيب') ? 10 : 0;
     if (items.length) items[0].order_binding_fee = bindingFee;
-    const printSubtotal = Number((items.reduce((sum, item) => sum + Number(item.quoted_price || 0), 0) + bindingFee).toFixed(2));
+    const calculatedPrintSubtotal = Number((items.reduce((sum, item) => sum + Number(item.quoted_price || 0), 0) + bindingFee).toFixed(2));
     const catalogTotal = Number(catalogItems.reduce((sum, item) => sum + item.line_total, 0).toFixed(2));
-    const totalPrice = Number((printSubtotal + catalogTotal).toFixed(2));
+    const allPrintItemsPriced = items.every(item => item.quoted_price != null);
+    const printSubtotal = allPrintItemsPriced ? calculatedPrintSubtotal : null;
+    const totalPrice = printSubtotal == null ? null : Number((printSubtotal + catalogTotal).toFixed(2));
     const totalPages = items.reduce((sum, item) => sum + (item.page_count || 0), 0);
     const totalImages = items.reduce((sum, item) => sum + item.image_count, 0);
     const totalPrintedImages = items.reduce((sum, item) => sum + item.printed_image_count, 0);
