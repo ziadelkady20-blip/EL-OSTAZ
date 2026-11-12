@@ -93,7 +93,7 @@ function renderCatalogAdmin(){
 async function loadCatalogAdmin(){
   if(!categoryForm||!productForm)return;
   try{
-    const response=await fetch('/api/admin/catalog',{credentials:'same-origin',cache:'no-store'});
+    const response=await fetch('/api/orders?catalog=admin',{credentials:'same-origin',cache:'no-store'});
     if(response.status===401){loginView.hidden=false;dashboard.hidden=true;return;}
     const data=await response.json();
     if(!response.ok)throw new Error(data.error||'تعذر تحميل بيانات المتجر');
@@ -107,7 +107,7 @@ async function loadCatalogAdmin(){
   }
 }
 async function saveCatalogData(payload,method='POST'){
-  const response=await fetch('/api/admin/catalog',{
+  const response=await fetch('/api/orders?catalog=admin',{
     method,
     headers:{'Content-Type':'application/json'},
     credentials:'same-origin',
