@@ -230,7 +230,7 @@ if(form){
     renderEstimate();
   }
   function renderEstimate(){
-    if(!items.length){estimateHost.hidden=true;return;}
+    if(!items.length){estimateHost.hidden=true;renderStoreCart();return;}
     estimateHost.hidden=false;
     const estimates=items.map(getEstimate);
     const priced=estimates.filter(Boolean);
