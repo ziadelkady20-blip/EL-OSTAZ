@@ -8,6 +8,8 @@ const statusOptions=Object.entries(statusLabels);
 let allOrders=[];
 let ordersRefreshTimer=null;
 let ordersLoadInFlight=false;
+let hasInitialOrdersLoad=false;
+let knownOrderCodes=new Set();
 
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateText=value=>value?new Date(value).toLocaleString('ar-EG',{dateStyle:'medium',timeStyle:'short'}):'—';
@@ -61,9 +63,16 @@ async function loadOrders({silent=false}={}){
     }
     const data=await response.json();
     if(!response.ok)throw new Error(data.error||'تعذر تحميل الطلبات');
-    allOrders=data.orders||[];
+    const nextOrders=data.orders||[];
+    const incomingOrders=hasInitialOrdersLoad
+      ?nextOrders.filter(order=>order.order_code&&!knownOrderCodes.has(order.order_code))
+      :[];
+    allOrders=nextOrders;
+    knownOrderCodes=new Set(nextOrders.map(order=>order.order_code).filter(Boolean));
+    hasInitialOrdersLoad=true;
     renderOrders();
-    document.getElementById('lastUpdated').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-EG')+' · تحديث تلقائي كل ١٥ ثانية';
+    if(incomingOrders.length)showNewOrderAlert(incomingOrders);
+    document.getElementById('lastUpdated').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-EG')+' · تحديث تلقائي كل ٥ ثوانٍ';
   }catch(error){
     if(!silent||!allOrders.length)ordersHost.innerHTML='<div class="empty">'+esc(error.message)+'</div>';
     document.getElementById('lastUpdated').textContent='تعذر تحديث الطلبات: '+esc(error.message);
@@ -75,7 +84,7 @@ function startOrdersAutoRefresh(){
   stopOrdersAutoRefresh();
   ordersRefreshTimer=window.setInterval(()=>{
     if(!document.hidden&&!dashboard.hidden)loadOrders({silent:true});
-  },15000);
+  },5000);
 }
 function stopOrdersAutoRefresh(){
   if(ordersRefreshTimer!==null){
@@ -232,6 +241,30 @@ adminProductsHost?.addEventListener('click',async event=>{
     }catch(error){catalogMessage(error.message);}
   }
 });
+
+function showNewOrderAlert(newOrders){
+  const host=document.getElementById('newOrderAlert');
+  if(!host||!newOrders.length)return;
+  const newest=newOrders[0];
+  const count=newOrders.length;
+  host.innerHTML='<span class="admin-new-order-icon" aria-hidden="true">🔔</span>'+
+    '<div class="admin-new-order-copy"><b>'+(count===1?'وصل طلب جديد!':'وصل '+esc(count)+' طلبات جديدة!')+'</b>'+
+    '<small>'+esc(newest.customer_name||'عميل جديد')+' · '+esc(newest.order_code||'')+'</small></div>'+
+    '<button class="btn" id="viewNewestOrder" type="button">عرض الطلب</button>'+
+    '<button class="admin-new-order-dismiss" id="dismissNewOrder" type="button" aria-label="إغلاق التنبيه">×</button>';
+  host.hidden=false;
+  document.getElementById('viewNewestOrder')?.addEventListener('click',()=>{
+    const search=document.getElementById('searchOrders');
+    const status=document.getElementById('statusFilter');
+    if(search)search.value=newest.order_code||'';
+    if(status)status.value='';
+    renderOrders();
+    const card=ordersHost.querySelector('[data-order="'+Number(newest.id)+'"]');
+    card?.scrollIntoView({behavior:'smooth',block:'center'});
+    host.hidden=true;
+  });
+  document.getElementById('dismissNewOrder')?.addEventListener('click',()=>{host.hidden=true;});
+}
 
 function renderOrders(){
   document.getElementById('total').textContent=allOrders.length;
