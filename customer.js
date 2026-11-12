@@ -662,33 +662,12 @@ if(form){
       });
       const result=await response.json();
       if(!response.ok)throw new Error(result.error||'تعذر إرسال الطلب');
-      notice.replaceChildren();
-      const heading=document.createElement('strong');
-      heading.textContent='تم استلام طلبك بنجاح.';
-      const code=document.createElement('div');
-      code.className='tracking-code';
-      code.textContent='رقم طلبك: '+result.order.order_code;
-      const help=document.createElement('p');
-      const productCount=[...cart.values()].reduce((sum,item)=>sum+item.quantity,0);
-      help.textContent='تم استلام '+items.length+' ملف طباعة و'+productCount+' قطعة من المتجر. '+(orderData.fulfillmentMethod==='delivery'?'اخترت التوصيل إلى العنوان المسجل.':'اخترت الاستلام من الفرع.')+' احتفظ برقم الطلب لمتابعة كل الطلب.';
-      const total=document.createElement('p');
-      total.className='order-confirmation-total';
-      total.textContent=result.order.quoted_price!=null
-        ?'الإجمالي التقديري لكل الملفات: '+formatMoney(Number(result.order.quoted_price))
-        :'بعض الملفات تحتاج تسعيرًا يدويًا؛ ستراجع المطبعة الطلب كاملًا وتؤكد الإجمالي.';
-      const link=document.createElement('a');
-      link.className='btn';
-      link.href=result.trackingUrl;
-      link.textContent='تابع حالة طلبك ←';
-      notice.append(heading,code,help,total,link);
-      form.reset();
-      syncFulfillmentFields();
-      items.splice(0,items.length);
-      cart.clear();
-      syncServices();
-      renderStoreCart();
-      renderFiles();
-      fileHelp.textContent='يمكنك اختيار عدة ملفات PDF مرة واحدة، أو الضغط مجددًا لإضافة ملفات أخرى. الحد الأقصى ٢٠ ملفًا للطلب.';
+      const orderCode=String(result.order?.order_code||'').trim();
+      if(!orderCode)throw new Error('تم تسجيل الطلب، لكن تعذر تجهيز صفحة تفاصيله. تواصل مع المطبعة واذكر وقت إرسال الطلب.');
+      const successUrl=new URL(result.trackingUrl||('/track.html?code='+encodeURIComponent(orderCode)),window.location.origin);
+      successUrl.searchParams.set('success','1');
+      window.location.assign(successUrl.href);
+      return;
     }catch(error){
       notice.textContent=error.message||'حدث خطأ. حاول مرة أخرى.';
       fileHelp.textContent='لم يكتمل إرسال الطلب. الملفات التي اكتمل رفعها ستظل محفوظة مؤقتًا؛ حاول مرة أخرى.';
