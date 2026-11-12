@@ -2,6 +2,17 @@ const form=document.getElementById('trackForm');
 const input=document.getElementById('orderCode');
 const resultHost=document.getElementById('trackResult');
 const message=document.getElementById('trackMessage');
+const successMode=new URLSearchParams(location.search).get('success')==='1';
+if(successMode){
+  document.title='تم استلام طلبك | الأستاذ';
+  const eyebrow=document.querySelector('.track-intro .eyebrow');
+  const heading=document.querySelector('.track-intro h1');
+  const intro=document.querySelector('.track-intro>p');
+  if(eyebrow)eyebrow.textContent='تأكيد الطلب';
+  if(heading)heading.textContent='طلبك اتسجل بنجاح';
+  if(intro)intro.textContent='شكرًا لطلبك من الأستاذ. راجع تفاصيل طلبك والسعر وطريقة الاستلام والعنوان بالأسفل.';
+  form.hidden=true;
+}
 const labels={new:'تم استلام الطلب',confirmed:'تم تأكيد الطلب',printing:'طلبك قيد الطباعة',ready:'الطلب جاهز للتسليم',delivered:'تم تسليم الطلب',cancelled:'تم إلغاء الطلب'};
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateText=value=>value?new Date(value).toLocaleString('ar-EG',{dateStyle:'medium',timeStyle:'short'}):'—';
@@ -13,6 +24,18 @@ async function track(code){
     if(!response.ok)throw new Error(data.error||'تعذر العثور على الطلب');
     const order=data.order;
     const fulfillmentLabel=order.fulfillment_method==='delivery'?'توصيل للعنوان':'استلام من الفرع';
+    const customerDetails='<section class="track-customer-details">'+
+      '<div><small>اسم العميل</small><b>'+esc(order.customer_name||'—')+'</b></div>'+
+      '<div><small>رقم الموبايل</small><b dir="ltr">'+esc(order.phone||'—')+'</b></div>'+
+      '<div><small>طريقة الاستلام</small><b>'+esc(fulfillmentLabel)+'</b></div>'+
+      (order.fulfillment_method==='delivery'
+        ?'<div class="track-customer-address"><small>عنوان التوصيل</small><b>'+esc(order.delivery_address||'لم يتم تسجيل عنوان التوصيل')+'</b></div>'
+        :'')+
+    '</section>';
+    const successBanner=successMode
+      ?'<div class="order-success-banner"><span class="order-success-check" aria-hidden="true">✓</span><div><b>تم استلام طلبك بنجاح</b><p>تم حفظ طلبك لدى المطبعة. احتفظ برقم الطلب لمتابعة حالته.</p></div></div>'
+      :'';
+
     const history=Array.isArray(order.status_history)?order.status_history:[];
     const timeline=history.map(item=>'<li class="track-event"><span class="track-dot"></span><div><b>'+esc(labels[item.status]||item.status)+'</b><small>'+esc(dateText(item.at))+'</small>'+(item.message?'<p>'+esc(item.message)+'</p>':'')+'</div></li>').join('');
     const files=Array.isArray(order.files)?order.files:[];
@@ -52,9 +75,9 @@ async function track(code){
     const priceSummary=(files.length||catalogItems.length)
       ?'<div class="track-price-summary">'+printSummary+catalogSummary+'<div class="track-price-total"><small>'+(hasOrderTotal?'إجمالي الطلب المسجل':(priced.length?'المجموع المحسوب حاليًا':'الإجمالي بعد المراجعة'))+'</small><strong>'+(hasOrderTotal?esc(Number(order.quoted_price).toFixed(2))+' جنيه':(priced.length||catalogItems.length?esc(partialTotal.toFixed(2))+' جنيه':'بعد المراجعة'))+'</strong></div><p>'+(hasOrderTotal?'هذا هو إجمالي الطلب المسجل لدى المطبعة، ويخضع للتأكيد قبل التنفيذ.':'المطبعة ستراجع الطلب وتؤكد الإجمالي النهائي قبل التنفيذ.')+'</p></div>'
       :'';
-    resultHost.innerHTML='<div class="track-result-head"><div><small>رقم الطلب</small><h2>'+esc(order.order_code)+'</h2></div><span class="status-pill status-'+esc(order.status)+'">'+esc(labels[order.status]||order.status)+'</span></div><div class="track-service"><small>الخدمة المطلوبة</small><b>'+esc(order.service_type)+'</b><small>طريقة الاستلام: '+esc(fulfillmentLabel)+'</small><small>تاريخ استلام الطلب: '+esc(dateText(order.created_at))+'</small></div>'+priceSummary+'<h3>مراحل طلبك</h3><ol class="track-timeline">'+timeline+'</ol>';
+    resultHost.innerHTML=successBanner+'<div class="track-result-head"><div><small>رقم الطلب</small><h2>'+esc(order.order_code)+'</h2></div><span class="status-pill status-'+esc(order.status)+'">'+esc(labels[order.status]||order.status)+'</span></div>'+customerDetails+'<div class="track-service"><small>الخدمة المطلوبة</small><b>'+esc(order.service_type)+'</b><small>تاريخ استلام الطلب: '+esc(dateText(order.created_at))+'</small></div>'+priceSummary+'<h3>مراحل طلبك</h3><ol class="track-timeline">'+timeline+'</ol>';
     resultHost.hidden=false;message.textContent='';
-  }catch(error){message.textContent=error.message;resultHost.hidden=true;}
+  }catch(error){message.textContent=error.message;resultHost.hidden=true;if(successMode)form.hidden=false;}
 }
 form.addEventListener('submit',event=>{event.preventDefault();const code=input.value.trim().toUpperCase();input.value=code;track(code);});
 const initial=new URLSearchParams(location.search).get('code');
