@@ -59,6 +59,43 @@
         <div><small>قيد الطباعة</small><b id="printingCount">0</b></div>
         <div><small>جاهزة للاستلام</small><b id="readyCount">0</b></div>
       </div>
+      <section class="admin-catalog" aria-labelledby="catalogAdminTitle">
+        <div class="admin-toolbar">
+          <div><h2 id="catalogAdminTitle">إدارة المتجر</h2><p>أضف الأقسام والمنتجات وحدد إذا كان المنتج متاحًا أو غير متاح.</p></div>
+          <button class="btn outline" id="refreshCatalog" type="button">تحديث المتجر ↻</button>
+        </div>
+        <div class="admin-catalog-grid">
+          <form id="categoryForm" class="admin-catalog-form">
+            <h3>إدارة الأقسام</h3>
+            <input type="hidden" name="id">
+            <label>اسم القسم<input name="name" required maxlength="120" placeholder="مثال: أدوات مدرسية"></label>
+            <div class="admin-catalog-form-actions">
+              <button class="btn" type="submit">حفظ القسم</button>
+              <button class="btn outline" type="button" id="cancelCategoryEdit">إلغاء</button>
+            </div>
+            <div id="adminCategories" class="admin-catalog-list" aria-live="polite"></div>
+          </form>
+          <form id="productForm" class="admin-catalog-form">
+            <h3>إضافة أو تعديل منتج</h3>
+            <input type="hidden" name="id">
+            <label>القسم<select name="categoryId" id="productCategory" required></select></label>
+            <label>اسم المنتج<input name="name" required maxlength="180" placeholder="اسم المنتج"></label>
+            <label>وصف مختصر<textarea name="description" rows="2" maxlength="1500" placeholder="تفاصيل أو مواصفات المنتج"></textarea></label>
+            <label>السعر بالجنيه<input name="price" type="number" min="0" max="100000000" step="0.01" required placeholder="0.00"></label>
+            <label>رابط صورة المنتج (اختياري)<input name="imageUrl" type="url" maxlength="1000" placeholder="https://..."></label>
+            <label>حالة المنتج<select name="active"><option value="true">متاح للبيع</option><option value="false">غير متاح</option></select></label>
+            <div class="admin-catalog-form-actions">
+              <button class="btn" type="submit">حفظ المنتج</button>
+              <button class="btn outline" type="button" id="cancelProductEdit">إلغاء التعديل</button>
+            </div>
+          </form>
+        </div>
+        <div class="admin-catalog-products-wrap">
+          <h3>المنتجات المسجلة</h3>
+          <div id="adminProducts" class="admin-products" aria-live="polite"><div class="empty">جاري تحميل المنتجات...</div></div>
+        </div>
+        <div id="catalogAdminNotice" class="admin-notice" role="status" aria-live="polite"></div>
+      </section>
       <div class="admin-toolbar">
         <div><h2>طلبات العملاء</h2><p id="lastUpdated">—</p></div>
         <button class="btn outline" id="refresh" type="button">تحديث القائمة ↻</button>
