@@ -152,12 +152,12 @@ export default async function handler(req, res) {
     const catalogItems = [];
     for (let index = 0; index < requestedProducts.length; index++) {
       const raw = requestedProducts[index] || {};
-      const productId = Number.parseInt(raw.id, 10);
-      const quantity = Number.parseInt(raw.quantity, 10);
+      const productId = Number(raw.id);
+      const quantity = Number(raw.quantity);
       if (!Number.isSafeInteger(productId) || productId < 1 || !Number.isInteger(quantity) || quantity < 1 || quantity > 500) {
         throw new Error('راجع المنتج والكمية في السلة');
       }
-      const productRows = await sql`SELECT p.id, p.category_id, p.name, p.description, p.price, p.image_url, p.active, c.active AS category_active
+      const productRows = await sql`SELECT p.id, p.category_id, c.name AS category_name, p.name, p.description, p.price, p.image_url, p.active, c.active AS category_active
         FROM public.catalog_products p
         INNER JOIN public.catalog_categories c ON c.id = p.category_id
         WHERE p.id = ${productId} LIMIT 1`;
@@ -169,6 +169,7 @@ export default async function handler(req, res) {
       catalogItems.push({
         product_id: Number(product.id),
         category_id: Number(product.category_id),
+        category_name: product.category_name,
         name: product.name,
         description: product.description,
         image_url: product.image_url,
@@ -285,7 +286,7 @@ export default async function handler(req, res) {
     }
     console.error('orders api error', error);
     const message = error?.message || '';
-    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|اختيار عدد الصفحات|ملف واحد إلى ٢٠|اختر طريقة الاستلام|عنوان التوصيل/i.test(message) ? 400 : 500;
+    const status = /ارفع|حجم الملف|نوع الملف|راجع الاسم|اختيارات|عدد النسخ|تتطلب ورق|صفحات|اختيار عدد الصفحات|ملف واحد إلى ٢٠|الحد الأقصى|اختر طريقة الاستلام|عنوان التوصيل|أضف ملف طباعة|منتج|السلة|غير متاح/i.test(message) ? 400 : 500;
     return sendJson(res, status, { error: status === 400 ? message : 'حدث خطأ أثناء حفظ الطلب. حاول مرة أخرى.' });
   }
 }
