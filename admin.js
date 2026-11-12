@@ -14,6 +14,7 @@ function showDashboard(username){
   dashboard.hidden=false;
   document.getElementById('adminIdentity').textContent='مرحبًا، '+username;
   loadOrders();
+  loadCatalogAdmin();
   setupPushNotifications();
 }
 async function checkSession(){
@@ -54,6 +55,156 @@ async function loadOrders(){
     document.getElementById('lastUpdated').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-EG');
   }catch(error){ordersHost.innerHTML='<div class="empty">'+esc(error.message)+'</div>';}
 }
+const categoryForm=document.getElementById('categoryForm');
+const productForm=document.getElementById('productForm');
+const adminCategoriesHost=document.getElementById('adminCategories');
+const adminProductsHost=document.getElementById('adminProducts');
+const productCategorySelect=document.getElementById('productCategory');
+const catalogAdminNotice=document.getElementById('catalogAdminNotice');
+let catalogCategories=[];
+let catalogProducts=[];
+
+function catalogMessage(message){
+  if(catalogAdminNotice)catalogAdminNotice.textContent=message||'';
+}
+function resetCategoryForm(){
+  categoryForm?.reset();
+  if(categoryForm)categoryForm.elements.id.value='';
+  const button=categoryForm?.querySelector('button[type="submit"]');
+  if(button)button.textContent='حفظ القسم';
+}
+function resetProductForm(){
+  productForm?.reset();
+  if(productForm){
+    productForm.elements.id.value='';
+    productForm.elements.active.value='true';
+  }
+  const button=productForm?.querySelector('button[type="submit"]');
+  if(button)button.textContent='حفظ المنتج';
+}
+function renderCatalogAdmin(){
+  if(!adminCategoriesHost||!adminProductsHost||!productCategorySelect)return;
+  const activeCategories=catalogCategories.filter(item=>item.active);
+  productCategorySelect.innerHTML=activeCategories.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.name)+'</option>').join('');
+  if(!activeCategories.length)productCategorySelect.innerHTML='<option value="">أضف قسمًا متاحًا أولًا</option>';
+  adminCategoriesHost.innerHTML=catalogCategories.length?catalogCategories.map(category=>'<div class="admin-catalog-row"><div><b>'+esc(category.name)+'</b><small>'+(category.active?'ظاهر في المتجر':'مخفي من المتجر')+'</small></div><div class="admin-catalog-row-actions"><button type="button" class="btn light" data-edit-category="'+esc(category.id)+'">تعديل</button><button type="button" class="btn outline" data-toggle-category="'+esc(category.id)+'">'+(category.active?'إخفاء':'إظهار')+'</button></div></div>').join(''):'<div class="empty">لا توجد أقسام.</div>';
+  adminProductsHost.innerHTML=catalogProducts.length?catalogProducts.map(product=>'<article class="admin-product-row"><div class="admin-product-main">'+(product.image_url?'<img src="'+esc(product.image_url)+'" alt="" loading="lazy">':'<span class="admin-product-placeholder">📦</span>')+'<div><b>'+esc(product.name)+'</b><small>'+esc(product.category_name||'—')+' · '+esc(Number(product.price).toFixed(2))+' جنيه</small>'+(product.description?'<small>'+esc(product.description)+'</small>':'')+'</div></div><div class="admin-catalog-row-actions"><span class="status-pill '+(product.active?'status-ready':'status-cancelled')+'">'+(product.active?'متاح':'غير متاح')+'</span><button type="button" class="btn light" data-edit-product="'+esc(product.id)+'">تعديل</button><button type="button" class="btn outline" data-toggle-product="'+esc(product.id)+'">'+(product.active?'إيقاف البيع':'إتاحة للبيع')+'</button></div></article>').join(''):'<div class="empty">لا توجد منتجات حتى الآن. أضف أول منتج من النموذج أعلاه.</div>';
+}
+async function loadCatalogAdmin(){
+  if(!categoryForm||!productForm)return;
+  try{
+    const response=await fetch('/api/admin/catalog',{credentials:'same-origin',cache:'no-store'});
+    if(response.status===401){loginView.hidden=false;dashboard.hidden=true;return;}
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'تعذر تحميل بيانات المتجر');
+    catalogCategories=data.categories||[];
+    catalogProducts=data.products||[];
+    renderCatalogAdmin();
+    catalogMessage('تم تحميل '+catalogCategories.length+' قسم و'+catalogProducts.length+' منتج.');
+  }catch(error){
+    if(adminProductsHost)adminProductsHost.innerHTML='<div class="empty">'+esc(error.message)+'</div>';
+    catalogMessage(error.message);
+  }
+}
+async function saveCatalogData(payload,method='POST'){
+  const response=await fetch('/api/admin/catalog',{
+    method,
+    headers:{'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body:JSON.stringify(payload)
+  });
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.error||'تعذر حفظ بيانات المتجر');
+  return result;
+}
+categoryForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const button=categoryForm.querySelector('button[type="submit"]');
+  button.disabled=true;
+  try{
+    const id=categoryForm.elements.id.value;
+    await saveCatalogData({type:'category',id:id||undefined,name:categoryForm.elements.name.value.trim()});
+    resetCategoryForm();
+    catalogMessage('تم حفظ القسم.');
+    await loadCatalogAdmin();
+  }catch(error){catalogMessage(error.message);}
+  finally{button.disabled=false;}
+});
+productForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const button=productForm.querySelector('button[type="submit"]');
+  button.disabled=true;
+  try{
+    const data=Object.fromEntries(new FormData(productForm));
+    await saveCatalogData({
+      type:'product',
+      id:data.id||undefined,
+      categoryId:data.categoryId,
+      name:data.name.trim(),
+      description:data.description.trim(),
+      price:Number(data.price),
+      imageUrl:data.imageUrl.trim(),
+      active:data.active==='true'
+    });
+    resetProductForm();
+    catalogMessage('تم حفظ المنتج.');
+    await loadCatalogAdmin();
+  }catch(error){catalogMessage(error.message);}
+  finally{button.disabled=false;}
+});
+document.getElementById('cancelCategoryEdit')?.addEventListener('click',resetCategoryForm);
+document.getElementById('cancelProductEdit')?.addEventListener('click',resetProductForm);
+document.getElementById('refreshCatalog')?.addEventListener('click',loadCatalogAdmin);
+adminCategoriesHost?.addEventListener('click',async event=>{
+  const edit=event.target.closest('[data-edit-category]');
+  const toggle=event.target.closest('[data-toggle-category]');
+  if(edit){
+    const category=catalogCategories.find(item=>String(item.id)===edit.dataset.editCategory);
+    if(!category)return;
+    categoryForm.elements.id.value=category.id;
+    categoryForm.elements.name.value=category.name;
+    categoryForm.querySelector('button[type="submit"]').textContent='حفظ تعديل القسم';
+    categoryForm.scrollIntoView({behavior:'smooth',block:'center'});
+  }else if(toggle){
+    const category=catalogCategories.find(item=>String(item.id)===toggle.dataset.toggleCategory);
+    if(!category)return;
+    try{
+      await saveCatalogData({type:'category',id:category.id,active:!category.active},'PATCH');
+      catalogMessage('تم تحديث حالة القسم.');
+      await loadCatalogAdmin();
+    }catch(error){catalogMessage(error.message);}
+  }
+});
+adminProductsHost?.addEventListener('click',async event=>{
+  const edit=event.target.closest('[data-edit-product]');
+  const toggle=event.target.closest('[data-toggle-product]');
+  if(edit){
+    const product=catalogProducts.find(item=>String(item.id)===edit.dataset.editProduct);
+    if(!product)return;
+    if(!catalogCategories.some(item=>item.active&&String(item.id)===String(product.category_id))){
+      catalogMessage('أظهر القسم أولًا حتى تتمكن من تعديل هذا المنتج.');
+      return;
+    }
+    productForm.elements.id.value=product.id;
+    productForm.elements.categoryId.value=product.category_id;
+    productForm.elements.name.value=product.name;
+    productForm.elements.description.value=product.description||'';
+    productForm.elements.price.value=product.price;
+    productForm.elements.imageUrl.value=product.image_url||'';
+    productForm.elements.active.value=String(product.active);
+    productForm.querySelector('button[type="submit"]').textContent='حفظ تعديل المنتج';
+    productForm.scrollIntoView({behavior:'smooth',block:'center'});
+  }else if(toggle){
+    const product=catalogProducts.find(item=>String(item.id)===toggle.dataset.toggleProduct);
+    if(!product)return;
+    try{
+      await saveCatalogData({type:'product',id:product.id,active:!product.active},'PATCH');
+      catalogMessage('تم تحديث حالة المنتج.');
+      await loadCatalogAdmin();
+    }catch(error){catalogMessage(error.message);}
+  }
+});
+
 function renderOrders(){
   document.getElementById('total').textContent=allOrders.length;
   document.getElementById('newCount').textContent=allOrders.filter(o=>o.status==='new').length;
