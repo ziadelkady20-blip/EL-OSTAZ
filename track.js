@@ -17,8 +17,10 @@ async function track(code){
     const timeline=history.map(item=>'<li class="track-event"><span class="track-dot"></span><div><b>'+esc(labels[item.status]||item.status)+'</b><small>'+esc(dateText(item.at))+'</small>'+(item.message?'<p>'+esc(item.message)+'</p>':'')+'</div></li>').join('');
     const files=Array.isArray(order.files)?order.files:[];
     const priced=files.filter(file=>file.quoted_price!=null);
+    const catalogItems=Array.isArray(order.catalog_items)?order.catalog_items:[];
+    const catalogTotal=Number(order.catalog_total||0);
     const bindingFee=Number(order.binding_fee||0);
-    const partialTotal=priced.reduce((sum,file)=>sum+Number(file.quoted_price),0)+bindingFee;
+    const partialTotal=priced.reduce((sum,file)=>sum+Number(file.quoted_price),0)+bindingFee+catalogTotal;
     const allPriced=files.length>0&&priced.length===files.length;
     const totalImages=files.reduce((sum,file)=>sum+Number(file.image_count??(String(file.file_type||'').startsWith('image/')?1:0)),0);
     const totalPrintedImages=files.reduce((sum,file)=>sum+Number(file.printed_image_count??(String(file.file_type||'').startsWith('image/')?(file.image_count??1)*(file.copies||1):0)),0);
@@ -40,8 +42,15 @@ async function track(code){
       return '<article class="track-file-item"><div><b>'+esc((index+1)+'. '+(file.file_name||'ملف الطباعة'))+'</b><strong>'+esc(price)+'</strong></div><small>'+esc(details)+'</small><small>'+esc(pages)+'</small>'+(file.notes?'<p>'+esc(file.notes)+'</p>':'')+'</article>';
     }).join('');
     const bindingFeeRow=bindingFee>0?'<div class="track-price-total"><small>رسوم التكعيب (مرة واحدة على الطلب)</small><strong>'+esc(bindingFee.toFixed(2))+' جنيه</strong></div>':'';
-    const priceSummary=files.length
-      ?'<div class="track-price-summary"><div class="track-files-heading"><b>تفاصيل الملفات ('+files.length+')</b></div>'+imageSummary+fileRows+bindingFeeRow+'<div class="track-price-total"><small>'+(hasOrderTotal?'إجمالي الطلب المسجل':(priced.length?'مجموع الملفات التي تم حسابها':'الإجمالي بعد المراجعة'))+'</small><strong>'+(hasOrderTotal?esc(Number(order.quoted_price).toFixed(2))+' جنيه':(priced.length?esc(partialTotal.toFixed(2))+' جنيه':'بعد المراجعة'))+'</strong></div><p>'+(hasOrderTotal?'هذا هو إجمالي الطلب المسجل لدى المطبعة، ويخضع للتأكيد قبل التنفيذ.':'بعض الملفات تحتاج تسعيرًا يدويًا؛ المطبعة ستؤكد الإجمالي النهائي بعد مراجعة الطلب.')+'</p></div>'
+    const catalogRows=catalogItems.map((item,index)=>'<article class="track-file-item"><div><b>'+esc((index+1)+'. '+item.name)+'</b><strong>'+esc(Number(item.line_total||0).toFixed(2))+' جنيه</strong></div><small>الكمية: '+esc(item.quantity)+' قطعة · سعر القطعة: '+esc(Number(item.unit_price||0).toFixed(2))+' جنيه</small></article>').join('');
+    const catalogSummary=catalogItems.length
+      ?'<div class="track-files-heading"><b>منتجات المتجر ('+catalogItems.length+' أصناف)</b></div>'+catalogRows+'<div class="track-price-total"><small>إجمالي منتجات المتجر</small><strong>'+esc(catalogTotal.toFixed(2))+' جنيه</strong></div>'
+      :'';
+    const printSummary=files.length
+      ?'<div class="track-files-heading"><b>تفاصيل الطباعة ('+files.length+' ملفات)</b></div>'+imageSummary+fileRows+bindingFeeRow
+      :'';
+    const priceSummary=(files.length||catalogItems.length)
+      ?'<div class="track-price-summary">'+printSummary+catalogSummary+'<div class="track-price-total"><small>'+(hasOrderTotal?'إجمالي الطلب المسجل':(priced.length?'المجموع المحسوب حاليًا':'الإجمالي بعد المراجعة'))+'</small><strong>'+(hasOrderTotal?esc(Number(order.quoted_price).toFixed(2))+' جنيه':(priced.length||catalogItems.length?esc(partialTotal.toFixed(2))+' جنيه':'بعد المراجعة'))+'</strong></div><p>'+(hasOrderTotal?'هذا هو إجمالي الطلب المسجل لدى المطبعة، ويخضع للتأكيد قبل التنفيذ.':'المطبعة ستراجع الطلب وتؤكد الإجمالي النهائي قبل التنفيذ.')+'</p></div>'
       :'';
     resultHost.innerHTML='<div class="track-result-head"><div><small>رقم الطلب</small><h2>'+esc(order.order_code)+'</h2></div><span class="status-pill status-'+esc(order.status)+'">'+esc(labels[order.status]||order.status)+'</span></div><div class="track-service"><small>الخدمة المطلوبة</small><b>'+esc(order.service_type)+'</b><small>طريقة الاستلام: '+esc(fulfillmentLabel)+'</small><small>تاريخ استلام الطلب: '+esc(dateText(order.created_at))+'</small></div>'+priceSummary+'<h3>مراحل طلبك</h3><ol class="track-timeline">'+timeline+'</ol>';
     resultHost.hidden=false;message.textContent='';
