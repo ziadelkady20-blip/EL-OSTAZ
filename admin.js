@@ -6,6 +6,8 @@ const ordersHost=document.getElementById('orders');
 const statusLabels={new:'جديد',confirmed:'تم التأكيد',printing:'قيد الطباعة',ready:'جاهز للتسليم',delivered:'تم التسليم',cancelled:'ملغي'};
 const statusOptions=Object.entries(statusLabels);
 let allOrders=[];
+let ordersRefreshTimer=null;
+let ordersLoadInFlight=false;
 
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateText=value=>value?new Date(value).toLocaleString('ar-EG',{dateStyle:'medium',timeStyle:'short'}):'—';
@@ -14,6 +16,7 @@ function showDashboard(username){
   dashboard.hidden=false;
   document.getElementById('adminIdentity').textContent='مرحبًا، '+username;
   loadOrders();
+  startOrdersAutoRefresh();
   loadCatalogAdmin();
   setupPushNotifications();
 }
@@ -41,19 +44,44 @@ loginForm.addEventListener('submit',async event=>{
 });
 document.getElementById('logoutButton').addEventListener('click',async()=>{
   await fetch('/api/admin/logout',{method:'POST',credentials:'same-origin'});
+  stopOrdersAutoRefresh();
   allOrders=[];loginView.hidden=false;dashboard.hidden=true;
 });
-async function loadOrders(){
-  ordersHost.innerHTML='<div class="empty">جاري تحميل الطلبات...</div>';
+async function loadOrders({silent=false}={}){
+  if(ordersLoadInFlight)return;
+  ordersLoadInFlight=true;
+  if(!silent||!allOrders.length)ordersHost.innerHTML='<div class="empty">جاري تحميل الطلبات...</div>';
   try{
     const response=await fetch('/api/orders',{credentials:'same-origin',cache:'no-store'});
-    if(response.status===401){loginView.hidden=false;dashboard.hidden=true;return;}
+    if(response.status===401){
+      stopOrdersAutoRefresh();
+      loginView.hidden=false;
+      dashboard.hidden=true;
+      return;
+    }
     const data=await response.json();
     if(!response.ok)throw new Error(data.error||'تعذر تحميل الطلبات');
     allOrders=data.orders||[];
     renderOrders();
-    document.getElementById('lastUpdated').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-EG');
-  }catch(error){ordersHost.innerHTML='<div class="empty">'+esc(error.message)+'</div>';}
+    document.getElementById('lastUpdated').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-EG')+' · تحديث تلقائي كل ١٥ ثانية';
+  }catch(error){
+    if(!silent||!allOrders.length)ordersHost.innerHTML='<div class="empty">'+esc(error.message)+'</div>';
+    document.getElementById('lastUpdated').textContent='تعذر تحديث الطلبات: '+esc(error.message);
+  }finally{
+    ordersLoadInFlight=false;
+  }
+}
+function startOrdersAutoRefresh(){
+  stopOrdersAutoRefresh();
+  ordersRefreshTimer=window.setInterval(()=>{
+    if(!document.hidden&&!dashboard.hidden)loadOrders({silent:true});
+  },15000);
+}
+function stopOrdersAutoRefresh(){
+  if(ordersRefreshTimer!==null){
+    window.clearInterval(ordersRefreshTimer);
+    ordersRefreshTimer=null;
+  }
 }
 const categoryForm=document.getElementById('categoryForm');
 const productForm=document.getElementById('productForm');
@@ -273,7 +301,13 @@ async function updateStatus(event){
   }catch(error){document.getElementById('adminNotice').textContent=error.message;}
   finally{button.disabled=false;button.textContent='حفظ التحديث';}
 }
-document.getElementById('refresh').addEventListener('click',loadOrders);
+document.getElementById('refresh').addEventListener('click',()=>loadOrders());
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&!dashboard.hidden)loadOrders({silent:true});
+});
+window.addEventListener('focus',()=>{
+  if(!dashboard.hidden)loadOrders({silent:true});
+});
 document.getElementById('searchOrders').addEventListener('input',renderOrders);
 document.getElementById('statusFilter').addEventListener('change',renderOrders);
 checkSession();
