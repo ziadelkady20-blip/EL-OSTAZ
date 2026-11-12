@@ -370,7 +370,7 @@ if(form){
     history.replaceState(null,'',location.pathname+location.search);
     fileHelp.textContent='جارٍ استيراد الملف الذي أرسلته من قائمة المشاركة...';
     try{
-      const response=await fetch('/api/share-import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+      const response=await fetch('/api/share',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'import',token})});
       const result=await response.json();
       if(!response.ok)throw new Error(result.error||'تعذر استيراد الملف');
       let added=0;
