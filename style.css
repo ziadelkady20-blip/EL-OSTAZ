@@ -731,3 +731,46 @@ footer a:not(.brand):hover{color:#fff}
   .track-customer-details .track-customer-address{grid-column:auto}
   .order-success-banner{align-items:flex-start;padding:14px}
 }
+
+
+/* Live new-order alert in the admin dashboard */
+.admin-new-order-alert{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:0 0 16px;
+  padding:13px 15px;
+  border:1px solid #b8e5cc;
+  border-radius:15px;
+  background:#effaf3;
+  color:#145c39;
+}
+.admin-new-order-alert[hidden]{display:none}
+.admin-new-order-icon{
+  flex:0 0 38px;
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#d8f2e2;
+  font-size:19px;
+}
+.admin-new-order-copy{display:grid;gap:2px;min-width:0;flex:1}
+.admin-new-order-copy b{font-size:13px}
+.admin-new-order-copy small{font-size:11px;color:#39775a;overflow-wrap:anywhere}
+.admin-new-order-alert .btn{padding:8px 13px;white-space:nowrap}
+.admin-new-order-dismiss{
+  border:0;
+  background:transparent;
+  color:#39775a;
+  font-size:24px;
+  line-height:1;
+  cursor:pointer;
+  padding:2px 6px;
+}
+@media(max-width:520px){
+  .admin-new-order-alert{gap:8px;padding:11px}
+  .admin-new-order-alert .btn{padding:7px 9px;font-size:10px}
+  .admin-new-order-copy b{font-size:12px}
+}
